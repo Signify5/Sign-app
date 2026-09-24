@@ -1,0 +1,25 @@
+spec.md
+_project_map.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# Virtual environment
+venv/
+.venv/
+
+# Downloaded model files
+models/
+
+# Session output (recorded WAVs, exported transcripts)
+exports/
+recordings/
+
+# Editor/OS cruft
+.vscode/
+.idea/
+.DS_Store
