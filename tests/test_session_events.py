@@ -1,8 +1,3 @@
-"""Tests for SignifySession's callback interface: event ordering, pause/resume/clear
-behavior, and finalized-text stability -- driven synchronously via feed_audio() with
-a FakeEngineAdapter and a scripted VAD, with no real audio device, model, or thread
-timing involved (except the dedicated lifecycle test, which uses FakeAudioCapture).
-"""
 from __future__ import annotations
 
 from typing import List, Optional, Tuple
@@ -55,7 +50,6 @@ def test_finalized_text_is_stable_after_emission(tmp_path):
 
     for _ in range(4):
         session.feed_audio(make_chunk(), 16000)
-    # further silence with no new speech must not re-emit or mutate the finalized text
     for _ in range(3):
         session.feed_audio(make_chunk(), 16000)
 
@@ -115,7 +109,7 @@ def test_clear_resets_engine_and_finalized_text(tmp_path):
     assert finals == ["Hello."]
 
     session.clear()
-    assert session.finalized_sentences == ()
+    assert session.finalized_sentences() == ()
     assert engine.fed_chunks == 0
 
 

@@ -1,44 +1,44 @@
 # Signify
 
-A small offline speech-to-text popup: turn on the mic, see English text appear as
-you speak, export the recording and transcript. First reusable piece for a larger
-Sign-app project.
+A small offline speech-to-text popup. Hit start, watch English text show up as you
+talk, then export the recording and transcript when you're done. It's the first
+piece of a bigger sign-language app I'm building.
 
-Fully offline after setup -- no audio or transcript data leaves the machine.
+Everything runs locally after the initial setup -- no audio or transcript ever
+leaves your machine.
 
-## Run it
+## Running it
 
 ```bash
 python -m venv venv
 venv\Scripts\pip install -r requirements.txt
-venv\Scripts\python setup_models.py   # downloads the Vosk model + silero-vad
+venv\Scripts\python setup_models.py   # grabs the Vosk model + silero-vad
 venv\Scripts\python main.py
 ```
 
-Run tests with `pytest` (uses fakes only -- no mic, model, or network needed).
+Tests run with `pytest` and don't need a mic, model, or network connection -- they're
+all fakes.
 
-## How it works
+## What's in here
 
-- `audio.py` -- captures the mic via `sounddevice`, writes a WAV as you go.
-- `vad.py` -- silero-vad detects speech vs. silence to decide when to finalize a
-  sentence (0.9s of silence, or you hit stop).
-- `engine.py` -- the transcription engine contract (`EngineAdapter`) and the Vosk
-  implementation of it. Vosk is genuinely streaming: partial text comes back in a
-  few milliseconds as you speak.
-- `postprocess.py` -- capitalizes and punctuates Vosk's raw (lowercase,
-  unpunctuated) output.
-- `session.py` -- `SignifySession`, the orchestrator. Wires audio → VAD → engine →
-  a plain-Python callback interface (`on_partial` / `on_final` / `on_status`, plus
-  `wav_path` / `transcript_path`). Has no Qt dependency, so a later track can
-  consume it directly without depending on the GUI.
-- `gui.py` / `main.py` -- the PySide6 popup itself.
+- `audio.py` -- grabs mic audio through `sounddevice` and writes it to a WAV as it goes.
+- `vad.py` -- uses silero-vad to tell speech apart from silence, so it knows when to
+  wrap up a sentence (after 0.9s of quiet, or when you hit stop).
+- `engine.py` -- defines the transcription engine interface and the Vosk backend that
+  implements it. Vosk streams properly, so partial text shows up within milliseconds.
+- `postprocess.py` -- adds capitalization and punctuation to Vosk's raw output, which
+  otherwise comes back lowercase with no punctuation at all.
+- `session.py` -- `SignifySession`, the piece that wires audio, VAD, and the engine
+  together and exposes plain callbacks (`on_partial` / `on_final` / `on_status`, plus
+  `wav_path` / `transcript_path`). No Qt in here, so it can be reused outside the GUI.
+- `gui.py` / `main.py` -- the actual PySide6 popup window.
 
-Exports both a `.wav` recording and the transcript as `.txt` and `.json`.
+Each session exports a `.wav` recording plus the transcript as both `.txt` and `.json`.
 
 ## Why Vosk
 
-Four engines were benchmarked against a fixed 8-sentence script (openai-whisper,
-whisper.cpp, Moonshine, and NVIDIA Parakeet, in addition to Vosk):
+I benchmarked four other engines against Vosk on a fixed 8-sentence script:
+openai-whisper, whisper.cpp, Moonshine, and NVIDIA Parakeet.
 
 | Engine | Tier | Hardware | Accuracy (WER) | Avg latency (partial / final) | Avg CPU | Avg RAM |
 |---|---|---|---|---|---|---|
@@ -51,18 +51,17 @@ whisper.cpp, Moonshine, and NVIDIA Parakeet, in addition to Vosk):
 | Moonshine | base | CPU | 2.82% | 181ms / 302ms | 1781.2% | 800MB |
 | Parakeet | tdt-1.1b | GPU | 5.63% | 78ms / 84ms | 86.6% | 5034MB |
 
-**Vosk won**: fastest by a wide margin, lowest resource use, ties for best
-practical accuracy, and needs no GPU at all. Its apparent WER gap against the
-2.82%-WER engines is mostly a labeling artifact -- Vosk's "errors" were missing
-capitalization on proper nouns (e.g. "tuesday"), not misheard words, while the
-other engines' errors were real word-choice mistakes.
+Vosk won by a wide margin: fastest, lightest on resources, ties for best real-world
+accuracy, and doesn't need a GPU at all. Its WER looks a bit worse than the top two
+engines on paper, but that gap is mostly a labeling quirk -- Vosk's "mistakes" were
+missing capitalization on proper nouns (like "tuesday"), not actual misheard words,
+while the other engines made real word-choice errors.
 
-Caveats: the reference script was locally synthesized via Windows TTS, not real
-human speech, so real-world accuracy may differ -- this is a reasonable smoke test,
-not a substitute for testing against a real recorded voice. `openai-whisper base`
-(GPU) and Parakeet (GPU) are worth reconsidering if a target deployment always has
-a capable GPU and needs Whisper-family robustness to accents/noise.
+One caveat: the test script was synthesized with Windows TTS, not real human speech,
+so this is a decent smoke test but not a substitute for trying it on an actual voice.
+If a deployment always has a solid GPU and needs extra robustness to accents or
+background noise, `openai-whisper base` or Parakeet are worth a second look.
 
-## Out of scope (this milestone)
+## Not doing (yet)
 
 MP3 export, cloud transcription, translation, sign-language recognition, accounts.

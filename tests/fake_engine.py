@@ -1,7 +1,3 @@
-"""A scripted, dependency-free EngineAdapter used by tests so session/interface
-behavior can be verified without any real audio device, model download, or
-network access.
-"""
 from __future__ import annotations
 
 from typing import Iterator, List, Optional

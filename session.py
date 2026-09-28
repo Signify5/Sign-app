@@ -1,11 +1,3 @@
-"""Engine-independent session orchestrator.
-
-SignifySession wires audio capture, VAD, and a transcription engine together and
-exposes a plain-Python callback interface (on_partial/on_final/on_status) that the
-GUI and any later track can consume identically. It never imports Qt, and both the
-audio source and the VAD are injected so it can be driven entirely by fakes in
-tests.
-"""
 from __future__ import annotations
 
 import json
@@ -34,8 +26,6 @@ SILENCE_FINALIZE_S = 0.9
 
 
 class SignifySession:
-    """Owns one recording/transcription session end to end."""
-
     def __init__(
         self,
         engine: EngineAdapter,
@@ -77,8 +67,6 @@ class SignifySession:
         self.wav_path: Optional[Path] = None
         self.transcript_path: Dict[str, Path] = {}
 
-    # -- observer registration -------------------------------------------------
-
     def on_partial(self, cb: Callable[[PartialResult], None]) -> None:
         self._partial_cbs.append(cb)
 
@@ -88,7 +76,6 @@ class SignifySession:
     def on_status(self, cb: Callable[[StatusEvent], None]) -> None:
         self._status_cbs.append(cb)
 
-    @property
     def finalized_sentences(self) -> Tuple[str, ...]:
         return tuple(self._finalized)
 
@@ -107,17 +94,11 @@ class SignifySession:
             cb(result)
 
     def _emit_status(self, state: str, detail: Optional[str] = None) -> None:
-        event = StatusEvent(state=state, detail=detail)  # type: ignore[arg-type]
+        event = StatusEvent(state=state, detail=detail)
         for cb in self._status_cbs:
             cb(event)
 
-    # -- lifecycle ---------------------------------------------------------------
-
     def load_engine(self) -> bool:
-        """Load the underlying engine, emitting loading/error status. Returns True on
-        success. Called by start(); also usable directly to load an engine before
-        feeding pre-recorded audio via feed_audio(), with no microphone involved.
-        """
         self._emit_status("loading")
         try:
             self._engine.load(self._model_size, self._device)
@@ -128,9 +109,6 @@ class SignifySession:
         return True
 
     def finalize(self) -> None:
-        """Force-finalize the current in-progress segment, e.g. after feeding a
-        complete pre-recorded clip that ends without trailing VAD-detected silence.
-        """
         self._finalize_current_segment()
 
     def start(self) -> None:
@@ -219,13 +197,7 @@ class SignifySession:
         self.transcript_path = {"txt": txt_path, "json": json_path}
         return self.transcript_path
 
-    # -- feed path (used by the live worker thread; also callable directly) --
-
     def feed_audio(self, chunk: np.ndarray, sample_rate: Optional[int] = None) -> None:
-        """Process one audio chunk: VAD -> engine.feed -> periodic partial flush ->
-        silence-triggered finalize. Public so tests can drive it with synthetic
-        chunks or pre-recorded audio, with no microphone involved.
-        """
         sample_rate = sample_rate or self._sample_rate
         if self._segment_start is None:
             self._segment_start = time.monotonic()
@@ -247,12 +219,6 @@ class SignifySession:
                 self._finalize_current_segment()
                 return
 
-        # Gated on audio-time consumed, not wall-clock time: if chunks were ever fed
-        # faster than real-time, wall-clock gating would collapse into firing on
-        # every chunk once a single inference call takes longer than
-        # partial_interval_s. Audio-time gating is immune to that and is identical
-        # to wall-clock gating in the live-mic case, where chunks already arrive in
-        # real time.
         if self._in_speech and (self._audio_clock - self._last_flush_audio_time) >= self._partial_interval_s:
             text = self._engine.flush(is_final=False)
             self._last_flush_audio_time = self._audio_clock
@@ -287,5 +253,5 @@ class SignifySession:
                 continue
             try:
                 self.feed_audio(chunk, self._sample_rate)
-            except Exception as exc:  # surface any engine/VAD failure, keep the worker alive
+            except Exception as exc:
                 self._emit_status("error", str(exc))

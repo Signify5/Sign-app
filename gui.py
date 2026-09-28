@@ -1,11 +1,3 @@
-"""PySide6 popup for Signify.
-
-SignifySession's callbacks fire from its own worker thread (never from Qt), so this
-module's only Qt-specific job is marshaling those callbacks onto the GUI thread via
-signals -- session.py itself stays fully Qt-agnostic. session.start()/stop() run on
-a plain background thread too, so model loading and stream teardown never freeze
-the UI.
-"""
 from __future__ import annotations
 
 import html
@@ -93,16 +85,12 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(central)
 
-    # -- status banner ------------------------------------------------------
-
     def _set_status_style(self, state: str, text: str) -> None:
         bg, fg = _STATUS_STYLES.get(state, _STATUS_STYLES["idle"])
         self.status_label.setStyleSheet(
             f"background-color: {bg}; color: {fg}; padding: 6px; border-radius: 4px;"
         )
         self.status_label.setText(text)
-
-    # -- transcript rendering -------------------------------------------------
 
     def _refresh_transcript_display(self) -> None:
         parts = [f"<div>{html.escape(line)}</div>" for line in self._finalized_lines]
@@ -113,8 +101,6 @@ class MainWindow(QMainWindow):
         self.transcript_view.setHtml("".join(parts))
         scrollbar = self.transcript_view.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
-
-    # -- signal handlers (run on the GUI thread) -----------------------------
 
     @Slot(str)
     def _on_partial(self, text: str) -> None:
@@ -152,8 +138,6 @@ class MainWindow(QMainWindow):
             self.start_stop_btn.setEnabled(True)
             self.start_stop_btn.setText("Start")
             self.pause_resume_btn.setEnabled(False)
-
-    # -- button handlers ------------------------------------------------------
 
     def _on_start_stop_clicked(self) -> None:
         if self.start_stop_btn.text() == "Start":

@@ -1,10 +1,3 @@
-"""Microphone capture and WAV export.
-
-AudioCapture wraps a sounddevice.InputStream and mirrors every captured frame to a
-WAV file while also pushing it onto a bounded queue for a consumer (SignifySession)
-to read. Pausing stops both the stream and the WAV writer, leaving a gap in the file;
-resuming reopens the stream and continues appending.
-"""
 from __future__ import annotations
 
 import queue
@@ -20,13 +13,11 @@ SAMPLE_RATE = 16000
 CHANNELS = 1
 DTYPE = "float32"
 
-# 512 samples (32ms @ 16kHz) matches silero-vad's required block size, so chunks can
-# be fed straight to the VAD without any extra buffering just for that purpose.
 CHUNK_SAMPLES = 512
 
 
 class AudioCaptureError(RuntimeError):
-    """Raised when the microphone or the WAV output file cannot be opened."""
+    pass
 
 
 class AudioCapture:
@@ -40,19 +31,17 @@ class AudioCapture:
         self.sample_rate = sample_rate
         self.channels = channels
         self.chunk_samples = chunk_samples
-        self._queue: "queue.Queue[np.ndarray]" = queue.Queue(maxsize=queue_maxsize)
+        self._queue = queue.Queue(maxsize=queue_maxsize)
         self._stream: Optional[sd.InputStream] = None
         self._wav_writer: Optional[wave.Wave_write] = None
         self._wav_path: Optional[Path] = None
         self._lock = threading.Lock()
         self._active = False
 
-    @property
     def is_active(self) -> bool:
         return self._active
 
     def start(self, wav_path: Path) -> None:
-        """Open the WAV output and the microphone stream. Use resume() after pause()."""
         if self._active:
             raise AudioCaptureError("capture already active")
         self._wav_path = Path(wav_path)
@@ -60,7 +49,7 @@ class AudioCapture:
         try:
             writer = wave.open(str(self._wav_path), "wb")
             writer.setnchannels(self.channels)
-            writer.setsampwidth(2)  # 16-bit PCM
+            writer.setsampwidth(2)
             writer.setframerate(self.sample_rate)
         except OSError as exc:
             raise AudioCaptureError(f"could not open WAV file for writing: {exc}") from exc
@@ -68,7 +57,6 @@ class AudioCapture:
         self._open_stream()
 
     def resume(self) -> None:
-        """Reopen the microphone stream after pause(); keeps appending to the same WAV."""
         if self._active:
             raise AudioCaptureError("capture already active")
         if self._wav_writer is None:
@@ -113,7 +101,6 @@ class AudioCapture:
                 pass
 
     def pause(self) -> None:
-        """Stop the microphone stream; the WAV file stays open for resume() to continue."""
         if self._stream is not None:
             self._stream.stop()
             self._stream.close()
@@ -121,7 +108,6 @@ class AudioCapture:
         self._active = False
 
     def stop(self) -> Path:
-        """Stop capture and finalize the WAV file. Returns the WAV path."""
         self.pause()
         with self._lock:
             if self._wav_writer is not None:
@@ -132,14 +118,12 @@ class AudioCapture:
         return self._wav_path
 
     def get_chunk(self, timeout: Optional[float] = None) -> Optional[np.ndarray]:
-        """Return the next captured chunk, or None if none arrived within timeout."""
         try:
             return self._queue.get(timeout=timeout)
         except queue.Empty:
             return None
 
     def drain(self) -> None:
-        """Discard any buffered chunks (used on clear())."""
         while True:
             try:
                 self._queue.get_nowait()

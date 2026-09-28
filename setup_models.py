@@ -1,10 +1,3 @@
-"""Downloads and verifies the Vosk model plus silero-vad, into a top-level models/
-directory. Idempotent: skips anything already present and valid. Exits non-zero if
-anything required is missing/corrupt after running.
-
-Usage:
-    python setup_models.py
-"""
 from __future__ import annotations
 
 import shutil

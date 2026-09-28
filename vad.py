@@ -1,31 +1,14 @@
-"""Voice-activity detection: decides speech vs. silence for sentence finalization.
-
-VoiceActivityDetector is a plain structural Protocol so SignifySession stays
-decoupled from any specific VAD backend (and so tests can inject a scripted stub
-instead of the real model). SileroVAD loads torch and the silero-vad package lazily,
-inside __init__/is_speech rather than at module import time, so this module can be
-imported anywhere for its Protocol without requiring those heavy dependencies.
-"""
 from __future__ import annotations
-
-from typing import Optional, Protocol
 
 import numpy as np
 
 
-class VoiceActivityDetector(Protocol):
+class VoiceActivityDetector:
     def is_speech(self, chunk: np.ndarray, sample_rate: int) -> bool:
-        """Return True if chunk contains speech."""
-        ...
+        raise NotImplementedError
 
 
-class SileroVAD:
-    """silero-vad backed VoiceActivityDetector.
-
-    silero-vad expects fixed-size blocks (512 samples at 16kHz, 256 at 8kHz);
-    audio.py's CHUNK_SAMPLES is set to 512 for exactly this reason.
-    """
-
+class SileroVAD(VoiceActivityDetector):
     def __init__(self, threshold: float = 0.5) -> None:
         self.threshold = threshold
         self._model = None

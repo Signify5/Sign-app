@@ -1,6 +1,3 @@
-"""Shared pytest fixtures: a SignifySession wired to a FakeEngineAdapter, so the
-interface can be exercised with no real microphone, model, or network access.
-"""
 from __future__ import annotations
 
 import numpy as np

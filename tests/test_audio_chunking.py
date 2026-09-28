@@ -1,6 +1,3 @@
-"""Tests for AudioCapture's chunk framing and WAV writing, driven directly through
-its internal chunk handler so no real sounddevice input stream is ever opened.
-"""
 from __future__ import annotations
 
 import wave

@@ -1,7 +1,3 @@
-"""Tests for VAD-driven sentence finalization: no finalize before the silence
-threshold, finalize exactly at the threshold, and explicit stop() finalizing even
-without silence -- all using a scripted VAD stub, never the real silero model.
-"""
 from __future__ import annotations
 
 import numpy as np
@@ -11,12 +7,12 @@ from fake_engine import FakeEngineAdapter
 from fake_vad import ScriptedVAD
 from session import SignifySession
 
-CHUNK = np.zeros(480, dtype=np.float32)  # 0.03s at 16kHz
+CHUNK = np.zeros(480, dtype=np.float32)
 
 
 def test_no_finalize_before_silence_threshold(tmp_path):
     engine = FakeEngineAdapter(final_text="x")
-    vad = ScriptedVAD([True, False])  # only 0.03s of silence
+    vad = ScriptedVAD([True, False])
     session = SignifySession(
         engine=engine,
         vad=vad,
@@ -33,7 +29,7 @@ def test_no_finalize_before_silence_threshold(tmp_path):
 
 def test_finalize_exactly_at_silence_threshold(tmp_path):
     engine = FakeEngineAdapter(final_text="x")
-    vad = ScriptedVAD([True] + [False] * 17)  # 17 * 0.03s = 0.51s >= 0.5s threshold
+    vad = ScriptedVAD([True] + [False] * 17)
     session = SignifySession(
         engine=engine,
         vad=vad,
@@ -50,7 +46,7 @@ def test_finalize_exactly_at_silence_threshold(tmp_path):
 
 def test_explicit_stop_finalizes_without_silence(tmp_path):
     engine = FakeEngineAdapter(final_text="x")
-    vad = ScriptedVAD([True, True, True])  # never goes silent
+    vad = ScriptedVAD([True, True, True])
     session = SignifySession(
         engine=engine,
         vad=vad,

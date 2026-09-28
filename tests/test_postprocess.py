@@ -1,4 +1,3 @@
-"""Unit tests for the shared punctuation/casing normalization pass."""
 from __future__ import annotations
 
 from postprocess import normalize

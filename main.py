@@ -1,4 +1,3 @@
-"""Entry point: launches the Signify speech-to-text popup."""
 from __future__ import annotations
 
 import sys

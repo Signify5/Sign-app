@@ -1,88 +1,62 @@
-"""Engine-independent transcription interface, and the Vosk implementation of it.
-
-SignifySession, the GUI, and tests all drive a transcription engine through the
-EngineAdapter contract below, without depending on which concrete engine is
-active. Vosk was chosen as the shipped engine after benchmarking it against
-openai-whisper, whisper.cpp, and Moonshine -- see README.md for the results. The
-interface stays engine-independent so a different engine could be swapped in
-later without touching session.py.
-"""
 from __future__ import annotations
 
 import json
 import os
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Optional
 
 import numpy as np
-
-StatusState = Literal["loading", "listening", "paused", "stopped", "error"]
 
 DEFAULT_MODEL_DIR = os.path.join("models", "vosk")
 
 
 class EngineLoadError(RuntimeError):
-    """Raised by EngineAdapter.load() when a model fails to load."""
+    pass
 
 
-@dataclass(frozen=True)
 class PartialResult:
-    text: str
-    timestamp: datetime
+    def __init__(self, text: str, timestamp: datetime) -> None:
+        self.text = text
+        self.timestamp = timestamp
 
 
-@dataclass(frozen=True)
 class FinalResult:
-    text: str
-    start: float
-    end: float
-    timestamp: datetime
+    def __init__(self, text: str, start: float, end: float, timestamp: datetime) -> None:
+        self.text = text
+        self.start = start
+        self.end = end
+        self.timestamp = timestamp
 
 
-@dataclass(frozen=True)
 class StatusEvent:
-    state: StatusState
-    detail: Optional[str] = None
+    def __init__(self, state: str, detail: Optional[str] = None) -> None:
+        self.state = state
+        self.detail = detail
 
 
-class EngineAdapter(ABC):
-    """Common contract implemented by a transcription engine backend."""
-
+class EngineAdapter:
     supports_streaming: bool = False
 
-    @abstractmethod
     def load(self, model_size: str, device: Optional[str] = None) -> None:
-        """Load the model. Raise EngineLoadError on failure."""
+        raise NotImplementedError
 
     def warm_up(self) -> None:
-        """Optional no-op inference to avoid a first-chunk latency spike."""
+        pass
 
-    @abstractmethod
     def feed(self, chunk: np.ndarray, sample_rate: int) -> None:
-        """Push a mono float32 PCM chunk (range [-1, 1]) into the engine's buffer."""
+        raise NotImplementedError
 
-    @abstractmethod
     def flush(self, is_final: bool) -> Optional[str]:
-        """Run inference over buffered audio. Returns text, or None if nothing new."""
+        raise NotImplementedError
 
-    @abstractmethod
     def reset(self) -> None:
-        """Clear internal buffer state (used on pause, clear-transcript, and finalize)."""
+        raise NotImplementedError
 
     def close(self) -> None:
-        """Release model/session resources."""
+        pass
 
 
 class VoskAdapter(EngineAdapter):
-    """Vosk is genuinely streaming: AcceptWaveform is fed 16-bit PCM bytes
-    incrementally and PartialResult()/FinalResult() read the recognizer's current
-    state directly, with no re-decoding of prior audio. Vosk's own output is
-    lowercase with no punctuation; postprocess.py's shared pass (applied by
-    SignifySession, not here) handles that.
-    """
-
     supports_streaming = True
 
     def __init__(self, model_dir: str = DEFAULT_MODEL_DIR) -> None:
@@ -92,8 +66,6 @@ class VoskAdapter(EngineAdapter):
         self._sample_rate = 16000
 
     def load(self, model_size: str, device: Optional[str] = None) -> None:
-        # Vosk/Kaldi is CPU-only; device is accepted for interface compatibility
-        # and ignored.
         try:
             import vosk
         except ImportError as exc:

@@ -1,9 +1,3 @@
-"""A no-hardware stand-in for AudioCapture.
-
-start()/pause()/resume()/stop() just track state; get_chunk() returns whatever the
-test manually pushes. Lets the full SignifySession lifecycle (including status
-transitions) be exercised without ever touching sounddevice.
-"""
 from __future__ import annotations
 
 import queue
