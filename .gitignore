@@ -15,6 +15,9 @@ venv/
 # Downloaded model files
 models/
 
+# Downloaded sign clips + index (WLASL licence: not redistributable)
+clips/
+
 # Session output (recorded WAVs, exported transcripts)
 exports/
 recordings/
