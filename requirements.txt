@@ -8,6 +8,13 @@ silero-vad>=5.1
 # Transcription engine
 vosk>=0.3.45
 
+# Sign playback: bundled ffmpeg for MP4 export + clip probing (setup_clips.py, export.py)
+imageio-ffmpeg>=0.5
+
+# Hands-only animation (animate.py): hand tracking + rendering
+mediapipe>=0.10
+opencv-python>=4.9
+
 # Model downloads (setup_models.py)
 requests>=2.31
 # Makes Python trust the Windows system certificate store (not just certifi's
