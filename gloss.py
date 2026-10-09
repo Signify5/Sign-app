@@ -19,7 +19,7 @@ def to_gloss(text: str) -> list[str]:
     time_word: str | None = None
     wh_word: str | None = None
     has_negation = False
-    kept_tokens: list[str] = []
+    kept_tokens: list[tuple[str, str]] = []  # (word, dictionary form)
 
     for token in doc:
         word = token.text.lower()
@@ -42,9 +42,10 @@ def to_gloss(text: str) -> list[str]:
         if token.pos_ == "PUNCT":
             continue
 
-        kept_tokens.append(word)
+        kept_tokens.append((word, token.lemma_.lower()))
 
-    glossed = [LEXICON.get(w, "FS:" + w.upper()) for w in kept_tokens]
+    # a word not in the lexicon tries its dictionary form (ate -> eat) before being fingerspelled
+    glossed = [LEXICON.get(w) or LEXICON.get(lemma) or "FS:" + w.upper() for w, lemma in kept_tokens]
 
     result: list[str] = []
     if time_word:

@@ -28,3 +28,9 @@ EXAMPLES = [
 @pytest.mark.parametrize("sentence,expected", EXAMPLES)
 def test_examples(sentence, expected):
     assert to_gloss(sentence) == expected
+
+
+def test_dictionary_form_before_fingerspelling():
+    assert to_gloss("I ate pizza") == ["I", "EAT", "PIZZA"]
+    assert to_gloss("my friends called") == ["MY", "FRIEND", "CALL"]
+    assert to_gloss("I like xylophones") == ["I", "LIKE", "FS:XYLOPHONES"]
