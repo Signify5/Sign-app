@@ -1,6 +1,6 @@
 """Re-track every indexed clip from its kept video (after a change to animate.py) and refresh the index.
 
-    python tools/reextract.py [--workers 12]
+    python gloss_to_asl/tools/reextract.py [--workers 12]
 """
 from __future__ import annotations
 
@@ -10,17 +10,17 @@ import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]  # the repo root
 sys.path.insert(0, str(ROOT))
 
-from clips import CLIPS_DIR, INDEX_FILENAME, WLASL_DIR, Clip, ClipIndex  # noqa: E402
-from setup_clips import video_ranges  # noqa: E402
+from gloss_to_asl.clips import CLIPS_DIR, INDEX_FILENAME, WLASL_DIR, Clip, ClipIndex  # noqa: E402
+from gloss_to_asl.setup_clips import video_ranges  # noqa: E402
 
 
 def _one(job: tuple) -> tuple:
     import os
     os.chdir(ROOT)
-    from animate import extract_motion
+    from gloss_to_asl.animate import extract_motion
 
     motion_path, video, start, end = job
     try:

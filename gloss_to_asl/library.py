@@ -1,6 +1,6 @@
 """Every sign, the alphabet and a few phrases in one 3D player page.
 
-`python library.py` bakes the best clip of every gloss in the index (tracked motion, cut to the part
+`python -m gloss_to_asl.library` bakes the best clip of every gloss in the index (tracked motion, cut to the part
 where the hands are up, at LIB_FPS) and the authored A-Z handshapes into one self-contained page.
 The page chains signs in the browser, so any typed sentence plays; words without a sign are spelled.
 """
@@ -14,11 +14,11 @@ from typing import Callable, Dict, List, Optional, Sequence
 
 import numpy as np
 
-from aliases import DROP, resolve_aliases
-from clips import ClipIndex
-from fingerspell import ALPHABET, CHANGE_S, DOUBLE_SHIFT_M, HOLD_S, PATH_S, letter_frames, letter_pose
-from hand3d import HANDS, MIRROR, TEMPLATE_PATH, Pose, Rig, Tracks, _blob, pack_rig, rest_pose, sign_track
-from motion import FPS, TRANSITION_S, Motion, MotionError
+from gloss_to_asl.aliases import DROP, resolve_aliases
+from gloss_to_asl.clips import ClipIndex
+from gloss_to_asl.fingerspell import ALPHABET, CHANGE_S, DOUBLE_SHIFT_M, HOLD_S, PATH_S, letter_frames, letter_pose
+from gloss_to_asl.hand3d import HANDS, MIRROR, TEMPLATE_PATH, Pose, Rig, Tracks, _blob, pack_rig, rest_pose, sign_track
+from gloss_to_asl.motion import FPS, TRANSITION_S, Motion, MotionError
 
 LIB_FPS = 15.0  # stored rate; the page upsamples to FPS when it chains signs
 GAP_S = 0.1

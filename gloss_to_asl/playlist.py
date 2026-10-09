@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Sequence, Tuple
 
-from clips import Clip, ClipIndex, normalize_gloss
-from engine import StatusEvent
+from gloss_to_asl.clips import Clip, ClipIndex, normalize_gloss
+from speech_to_text.engine import StatusEvent
 
 SIGN = "sign"
 FINGERSPELL = "fingerspell"

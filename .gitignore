@@ -27,3 +27,8 @@ recordings/
 .vscode/
 .idea/
 .DS_Store
+
+# Kept on this computer only: tests, and the MakeHuman source files gloss_to_asl/tools/build_hand.py reads
+tests/
+pytest.ini
+gloss_to_asl/assets/makehuman/

@@ -17,10 +17,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from engine import VoskAdapter
-from session import SignifySession
+from speech_to_text.engine import VoskAdapter
+from speech_to_text.session import SignifySession
 from sign_panel import SignPanel
-from vad import SileroVAD
+from speech_to_text.vad import SileroVAD
 
 _STATUS_STYLES = {
     "idle": ("#e0e0e0", "#333333"),

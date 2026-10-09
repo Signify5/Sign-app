@@ -27,7 +27,7 @@ def analyze(text: str, nlp=None) -> List[Dict[str, object]]:
     `neg` is true when the word holds a negation (DON'T, CAN'T). `nlp` defaults to gloss.py's model.
     """
     if nlp is None:
-        from gloss import nlp
+        from text_to_gloss.gloss import nlp
     text = text.translate(_QUOTES)
     doc = nlp(text)
     out = []

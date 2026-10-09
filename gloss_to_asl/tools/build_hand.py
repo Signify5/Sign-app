@@ -1,6 +1,6 @@
-"""MakeHuman base mesh (CC0) right hand -> assets/hand/makehuman_hand.json, the rig the 3D player skins.
+"""MakeHuman base mesh (CC0) right hand -> gloss_to_asl/assets/hand/makehuman_hand.json, the rig the 3D player skins.
 
-Run from the repo root: python tools/build_hand.py
+Run from the repo root: python gloss_to_asl/tools/build_hand.py
 
 Output frame: metres, wrist at origin, fingers along +y, palm facing +z, thumb toward +x (right hand).
 Unified joints (20): 0 wrist; index/middle/ring/pinky each [mc, mcp, pip, dip]; thumb [cmc, mcp, ip].
@@ -10,9 +10,11 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parent.parent
-MH = ROOT / "assets" / "makehuman"
-OUT = ROOT / "assets" / "hand" / "makehuman_hand.json"
+ASSETS = Path(__file__).resolve().parent.parent / "assets"
+# MakeHuman's base.obj, default.mhskel and default_weights.mhw (CC0, from MakeHuman's data files,
+# github.com/makehumancommunity): only needed here, so they are kept out of the repo
+MH = ASSETS / "makehuman"
+OUT = ASSETS / "hand" / "makehuman_hand.json"
 
 FINGERS = ["index", "middle", "ring", "pinky"]
 NAMES = ["wrist"] + [f"{f}-{p}" for f in FINGERS for p in ("mc", "mcp", "pip", "dip")] + ["thumb-cmc", "thumb-mcp", "thumb-ip"]

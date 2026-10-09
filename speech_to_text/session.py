@@ -10,16 +10,16 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from audio import SAMPLE_RATE, AudioCapture, AudioCaptureError
-from engine import (
+from speech_to_text.audio import SAMPLE_RATE, AudioCapture, AudioCaptureError
+from speech_to_text.engine import (
     EngineAdapter,
     EngineLoadError,
     FinalResult,
     PartialResult,
     StatusEvent,
 )
-from postprocess import normalize
-from vad import VoiceActivityDetector
+from speech_to_text.postprocess import normalize
+from speech_to_text.vad import VoiceActivityDetector
 
 PARTIAL_INTERVAL_S = 0.5
 SILENCE_FINALIZE_S = 0.9

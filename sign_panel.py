@@ -1,6 +1,6 @@
 """The 3D hands inside the main window: each spoken sentence is signed on the library page.
 
-The page is exports/library.html (built by `python library.py`). It loads three.js from a CDN, so the
+The page is exports/library.html (built by `python -m gloss_to_asl.library`). It loads three.js from a CDN, so the
 hands need an internet connection. spaCy (step 2, translate.py) reads each sentence for the page's sign
 rules (gloss.js); without spaCy installed the page's own rules still sign it.
 """
@@ -14,8 +14,7 @@ from typing import List
 from PySide6.QtCore import QUrl
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
-import translate
-
+from text_to_gloss import translate
 LIBRARY_PAGE = Path(__file__).resolve().parent / "exports" / "library.html"
 
 try:
@@ -38,7 +37,7 @@ class SignPanel(QWidget):
         if QWebEngineView is None:
             problem = "The 3D hands need Qt WebEngine (pip install PySide6-Addons)."
         elif not page.exists():
-            problem = f"No sign library yet. Build it with: python library.py\n(expected {page})"
+            problem = f"No sign library yet. Build it with: python -m gloss_to_asl.library\n(expected {page})"
         if problem:
             label = QLabel(problem)
             label.setWordWrap(True)

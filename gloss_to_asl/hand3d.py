@@ -19,7 +19,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from motion import FPS, HANDS, TRANSITION_S, Motion, MotionError
+from gloss_to_asl.motion import FPS, HANDS, TRANSITION_S, Motion, MotionError
 
 ASSETS = Path(__file__).parent / "assets" / "hand"
 RIG_PATH = ASSETS / "makehuman_hand.json"
@@ -420,9 +420,9 @@ def write_player(tl: Timeline3D, out: Path, title: str, rig: Optional[Rig] = Non
 
 
 def main(argv: Optional[List[str]] = None) -> None:
-    from clips import ClipIndex
-    from fingerspell import spell_track
-    from playlist import FINGERSPELL, build_playlist
+    from gloss_to_asl.clips import ClipIndex
+    from gloss_to_asl.fingerspell import spell_track
+    from gloss_to_asl.playlist import FINGERSPELL, build_playlist
 
     ap = argparse.ArgumentParser(description="Bake a gloss list into a 3D hand player page")
     ap.add_argument("glosses", nargs="+")

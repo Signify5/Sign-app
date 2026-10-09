@@ -15,7 +15,7 @@ Three kinds of check:
 - Agreement: with three or more signings of a gloss, one whose strong hand moves unlike the others (which
   agree with each other) is flagged; it is more likely mislabelled or mistracked.
 
-`python signcheck.py --apply` stores each clip's faults in clips/index.json, so the best-formed signing of a
+`python -m gloss_to_asl.signcheck --apply` stores each clip's faults in clips/index.json, so the best-formed signing of a
 gloss is the one that plays, and writes clips/sign_check.json. library.py leaves out a gloss whose best
 signing still has a serious fault; the word is spelled instead. The lost-hand check needs the source videos
 and caches arm positions in clips/pose/.
@@ -30,8 +30,8 @@ from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 
-from animate import REST_Y, arm_raised
-from motion import HANDS, Motion
+from gloss_to_asl.animate import REST_Y, arm_raised
+from gloss_to_asl.motion import HANDS, Motion
 
 ASLLEX_URL = "https://osf.io/download/9nygd/"  # ASL-LEX 2.0 signdata.csv, https://osf.io/zpha4/
 ASLLEX_PATH = Path("datasets") / "asllex" / "signdata.csv"
@@ -266,7 +266,7 @@ def pose_path(clip) -> Path:
 
 
 def _arm_job(job: tuple) -> Optional[str]:
-    from animate import arm_track
+    from gloss_to_asl.animate import arm_track
 
     out, video, start, end = job
     try:
@@ -282,8 +282,8 @@ def cache_arms(index, clips_dir: Path, workers: int) -> None:
     """Track the arms (pose) of every clip whose source video is kept and has no cached arms yet."""
     from concurrent.futures import ProcessPoolExecutor
 
-    from clips import WLASL_DIR
-    from setup_clips import video_ranges
+    from gloss_to_asl.clips import WLASL_DIR
+    from gloss_to_asl.setup_clips import video_ranges
 
     ranges = video_ranges()
     jobs = []
@@ -332,7 +332,7 @@ def faults(c: Check) -> int:
 def main(argv: Optional[List[str]] = None) -> None:
     import argparse
 
-    from clips import CLIPS_DIR, INDEX_FILENAME, ClipIndex
+    from gloss_to_asl.clips import CLIPS_DIR, INDEX_FILENAME, ClipIndex
 
     ap = argparse.ArgumentParser(description="Check every sign's motion against ASL form")
     ap.add_argument("--apply", action="store_true",

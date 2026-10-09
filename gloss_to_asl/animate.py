@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import cv2
 import numpy as np
 
-from motion import FPS, HANDS, Motion
+from gloss_to_asl.motion import FPS, HANDS, Motion
 
 HAND_MODEL_URL = (
     "https://storage.googleapis.com/mediapipe-models/hand_landmarker/"

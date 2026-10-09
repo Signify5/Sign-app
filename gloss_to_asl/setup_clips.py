@@ -11,8 +11,8 @@ from urllib.parse import urlparse
 import requests
 import urllib3
 
-from animate import ensure_models, extract_motion
-from clips import CLIPS_DIR, INDEX_FILENAME, WLASL_DIR, Clip, ClipIndex
+from gloss_to_asl.animate import ensure_models, extract_motion
+from gloss_to_asl.clips import CLIPS_DIR, INDEX_FILENAME, WLASL_DIR, Clip, ClipIndex
 
 WLASL_JSON_URL = "https://raw.githubusercontent.com/dxli94/WLASL/master/start_kit/WLASL_v0.3.json"
 WLASL_JSON_NAME = "WLASL_v0.3.json"
@@ -50,7 +50,7 @@ def _fetch_one(task: dict, clips_dir: Path) -> dict:
     try:
         if not video.is_file() or video.stat().st_size == 0:
             _download(task["url"], video)
-        from motion import Motion
+        from gloss_to_asl.motion import Motion
 
         motion = Motion.load(motion_path) if motion_path.is_file() else None
         if motion is None or not motion.world:  # older 2D-only files are re-extracted with 3D landmarks
@@ -132,7 +132,7 @@ def fetch_letters(clips_dir: Path, manifest: Path) -> Tuple[Dict[str, Clip], Lis
             except Exception as exc:
                 failures.append({"letter": letter, "url": url, "error": f"{type(exc).__name__}: {exc}"})
 
-    from motion import Motion
+    from gloss_to_asl.motion import Motion
 
     letters: Dict[str, Clip] = {}
     for video in sorted(letters_dir.glob("*.mp4")) if letters_dir.is_dir() else []:

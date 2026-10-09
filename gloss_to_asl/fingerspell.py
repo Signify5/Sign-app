@@ -12,8 +12,8 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 from scipy.optimize import minimize
 
-from hand3d import Pose, Rig, Tracks, min_jerk, q_axis, q_from_matrix, q_mul, q_rotate
-from motion import FPS
+from gloss_to_asl.hand3d import Pose, Rig, Tracks, min_jerk, q_axis, q_from_matrix, q_mul, q_rotate
+from gloss_to_asl.motion import FPS
 
 FINGERS = ("index", "middle", "ring", "pinky")
 SPELL_POS = np.array([-0.12, 0.03, 0.26])  # beside the chin, a little in front of the shoulder
