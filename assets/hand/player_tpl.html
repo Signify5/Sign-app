@@ -424,17 +424,19 @@ if(LIB){
   // WH-sign last, plural nouns signed twice. Each item is a sign's tracks, or a word spelled letter by letter.
   const VOC=Object.keys(L.signs),PLURAL_SHIFT=0.04;  // a repeated plural moves 4 cm toward the signer's right
   const shifted=T=>T.map(x=>x&&x.map(p=>{const q=Float32Array.from(p);q[0]-=PLURAL_SHIFT;return q;}));
-  function parse(text){const r=toGloss(text,L),items=[],skipped=[];
+  function parse(text,nlp){const r=toGloss(text,L,nlp),items=[],skipped=[];
     r.items.forEach(x=>{if(x.spell){const T=spellTracks(x.spell);if(T)items.push({label:x.spell,tracks:T});else skipped.push(x.spell);return;}
       const T=signTracks(x.gloss);items.push({label:x.gloss,tracks:T});if(x.rep)items.push({label:x.gloss,tracks:shifted(T)});});
     return Object.assign(r,{items,skipped,order:items.map(x=>x.label).join(' ')});}
   const $=id=>document.getElementById(id),note=$('note'),text=$('text');
-  function say(s){const r=parse(s);
+  function say(s,nlp){const r=parse(s,nlp);
     note.textContent=[r.order?'ASL order: '+r.order:'',r.spelled.length?'Fingerspelled (no sign): '+r.spelled.join(', '):'',r.swapped.length?'Signed as: '+[...new Set(r.swapped)].join(', '):'',r.dropped.length?'Not signed in ASL: '+[...new Set(r.dropped)].join(', ').toLowerCase():'',r.added.length?'Added: '+[...new Set(r.added)].join(', '):'',
       r.skipped.length?'Skipped: '+r.skipped.join(', '):''].filter(Boolean).join('. ');
     if(r.items.length)load(compose(r.items));else if(!r.skipped.length)note.textContent='Type a word or sentence.';}
   $('lib').hidden=false;$('abcCredit').hidden=false;
   $('say').onsubmit=e=>{e.preventDefault();say(text.value);};
+  // The desktop app signs each spoken sentence; nlp is translate.analyze's spaCy reading (or null).
+  window.signText=(s,nlp)=>{text.value=s;say(s,nlp||null);};
   const btn=(parent,label,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;parent.appendChild(b);return b;};
   L.presets.forEach(p=>btn($('presets'),p.charAt(0)+p.slice(1).toLowerCase(),()=>{text.value=p.toLowerCase();say(p);}));
   Object.keys(L.letters).forEach(c=>btn($('abc'),c,()=>{note.textContent='';load(compose([{label:c,tracks:spellTracks(c,1.0)}]));}));

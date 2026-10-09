@@ -92,6 +92,8 @@ Signs are shown as a synthetic digital pair of hands, not as video of a person. 
 - Results of the checks: 5458 signings of 1994 glosses. Serious faults fell from 175 (one signing per gloss) to 31 with alternate signings and to 2 after the fill; PENNY and PERSONALITY are left out and spelled. About 160 ASL-LEX warnings remain, mostly regional or older variants. No fluent signer has reviewed the signs yet.
 - Agent ending: person nouns (TEACHER, DRIVER, AMERICAN) are the verb or place plus the agent ending, both flat hands moving down the sides. WLASL has no clip of the ending alone, so `library.agent_track` builds AGENT from the PERSON sign's movement with B hands.
 - Word forms: a noun sign gets only its plural unless ASL signs the action the same way (`aliases.VERB_TOO`: STUDIED, RAINING); otherwise FIRED would play flames and BOOKED a book. Words whose WLASL sense is unclear lose their derived forms (MEANT, MEANING). English's perfect (I have eaten) drops HAVE and is marked past like any past verb.
+- Step 2 joined (`translate.py`, `sign_panel.py`): step 2's spaCy reading (from `gloss.py`) and step 3's sign rules (gloss.js) are combined, not either one alone. `translate.analyze` gives each word gloss.js reads its dictionary form, part of speech, tense tag and negation; `toGloss(text, lex, nlp)` then uses spaCy to tell noun from verb (my BOOKS is a plural, he BOOKS a room is not), to find past tense and plurals, and to fall back to the dictionary form when a word has no sign of its own (BIGGER plays BIG), but never to a noun-only sign for a verb (FIRED is spelled, not FIRE). If the readings do not line up word for word, or spaCy is not installed, gloss.js uses its own rules (the shareable page always does). `gloss.to_gloss` still works on its own and its 12 examples are tests; its `FS:WORD` items are spelled by `build_playlist` unless WORD has a sign.
+- Main window (`gui.py`): the speech-to-text window has the 3D hands beside the transcript (Qt WebEngine showing `exports/library.html`); each finished sentence from vosk is signed. The page loads three.js from a CDN, so the hands need internet. Build the page first with `python library.py`.
 - Not possible with hands only and text input: facial grammar (raised or lowered brows for questions, negation headshake, mouth morphemes), spatial referencing (placing people in space, directional verbs), classifiers and verb aspect. Yes/no questions therefore look like statements. These need a face/body and real scene understanding (step 2's richer contract).
 
 ## Phase 3: Face (planned)
@@ -117,7 +119,7 @@ ASL grammar is carried partly by the face and head, which the hands-only player 
 
 ## Open Items
 
-- Agree the gloss input contract with the step 2 owner (default above).
+- Agree the gloss input contract with the step 2 owner (default above). Done in part: see "Step 2 joined".
 - Decide the initial vocabulary subset for download (full WLASL vs a smaller subset to keep setup fast).
 - Confirm WLASL and Signbank licence terms fit the intended use.
 - Have an ASL signer review the rendered signs.
