@@ -15,6 +15,10 @@ venv/
 # Downloaded model files
 models/
 
+# Downloaded datasets (WLASL, ASL-LEX) and the motion built from them: not redistributable
+datasets/
+clips/
+
 # Session output (recorded WAVs, exported transcripts)
 exports/
 recordings/

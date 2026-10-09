@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>/*TITLE*/</title>
+<style>
+:root{--bg:#fafaf8;--text:#1f1e1d;--muted:#6f6d68;--line:#dedcd6;--accent:#1f1e1d}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1d1b;--text:#ecebe7;--muted:#a3a19b;--line:#3a3935;--accent:#ecebe7}}
+:root[data-theme="dark"]{--bg:#1d1d1b;--text:#ecebe7;--muted:#a3a19b;--line:#3a3935;--accent:#ecebe7}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:880px;margin:0 auto;padding:20px 16px 32px}
+h1{font-size:15px;font-weight:600;margin:0 0 12px}
+#view{position:relative;width:100%;height:min(80vh,760px);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+#stage{position:absolute;inset:0}
+#msg{position:absolute;left:12px;bottom:10px;font-size:13px;color:var(--muted)}
+#words{display:flex;flex-wrap:wrap;gap:4px 14px;margin:14px 0 10px;font-size:18px;letter-spacing:.02em}
+#words span{color:var(--muted);transition:color .15s}
+#words span.on{color:var(--text);font-weight:600}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--muted)}
+button,select{font:inherit;font-size:13px;color:var(--text);background:transparent;border:1px solid var(--line);border-radius:4px;padding:5px 11px;cursor:pointer}
+button:hover,select:hover{border-color:var(--muted)}
+button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tone{width:24px;height:24px;padding:0;border-radius:50%}
+.sep{width:1px;height:20px;background:var(--line);margin:0 4px}
+#credit{margin-top:14px;font-size:12px;color:var(--muted)}
+#lib{margin-top:26px;display:grid;gap:22px}
+#lib[hidden]{display:none}
+h2{font-size:13px;font-weight:600;color:var(--muted);margin:0 0 8px}
+.row{display:flex;gap:8px}
+input{font:inherit;font-size:15px;color:var(--text);background:transparent;border:1px solid var(--line);border-radius:4px;padding:6px 10px;flex:1;min-width:0}
+input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.note{font-size:13px;color:var(--muted);margin:6px 0 0;min-height:1.45em}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.letters button{width:36px;padding:5px 0}
+.list{columns:4 150px;column-gap:18px;height:340px;overflow:auto;margin-top:8px;border-top:1px solid var(--line);padding-top:6px}
+.list button{display:block;width:100%;text-align:left;border:0;border-radius:0;padding:3px 0;font-size:13px}
+.list button:hover{text-decoration:underline}
+</style></head><body><main>
+<h1>/*TITLE*/</h1>
+<div id="view"><div id="stage" role="img" aria-label="3D hands signing the words below"></div><div id="msg">Loading...</div></div>
+<div id="words" aria-live="polite"></div>
+<div class="bar">
+  <button id="play">Pause</button><button id="replay">Replay</button>
+  <label>Speed <select id="speed"><option value="0.5">0.5x</option><option value="0.75">0.75x</option><option value="1" selected>1x</option></select></label>
+  <button id="loop" aria-pressed="true">Loop: on</button>
+  <span class="sep"></span><span id="tones">Skin</span>
+</div>
+<section id="lib" hidden>
+  <form id="say"><h2><label for="text">Sign a sentence</label></h2>
+    <div class="row"><input id="text" autocomplete="off" spellcheck="false" placeholder="Type English words, e.g. thank you"><button>Sign</button></div>
+    <p id="note" class="note" aria-live="polite"></p></form>
+  <div><h2>Phrases</h2><div id="presets" class="chips"></div></div>
+  <div><h2>Alphabet</h2><div id="abc" class="chips letters"></div></div>
+  <div><h2><label for="find">All signs</label> <span id="count"></span></h2><input id="find" type="search" autocomplete="off" placeholder="Filter"><div id="list" class="list"></div></div>
+</section>
+<div id="credit">Hands: MakeHuman base mesh, skeleton and weights (CC0). Motion: tracked from WLASL sign videos (academic use)<span id="abcCredit" hidden>; letters are authored handshapes</span>. Signs are machine-tracked and have not been checked by a signer.</div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script><script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/environments/RoomEnvironment.js"></script>
+<script>
+/*GLOSS*/
+</script>
+<script>
+const RIG=/*RIG*/,TL0=/*TIMELINE*/,LIB=/*LIBRARY*/;
+(async()=>{
+const TA={'<i2':Int16Array,'<u2':Uint16Array,'|u1':Uint8Array,'|i1':Int8Array};
+async function unpack(P){const bin=await new Response(new Blob([Uint8Array.from(atob(P.blob),c=>c.charCodeAt(0))]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  P.layout.forEach(([n,t,o,len])=>{P[n]=new TA[t](bin,o,len);});return P;}
+const HAND=await unpack(RIG);if(TL0)await unpack(TL0);if(LIB)await unpack(LIB);
+HAND.verts=Float32Array.from(HAND.verts,x=>x*1e-5);HAND.skinW=Float32Array.from(HAND.skinW,x=>x/255);
+// keep the hand and a short forearm stub; the stub fades out in the skin shader
+{const F=[];for(let f=0;f<HAND.faces.length;f+=3){const a=HAND.faces[f],b=HAND.faces[f+1],c=HAND.faces[f+2];
+  if(Math.min(HAND.verts[a*3+1],HAND.verts[b*3+1],HAND.verts[c*3+1])>-0.068)F.push(a,b,c);}HAND.faces=F;}
+THREE.ColorManagement.legacyMode=false;
+const stage=document.getElementById('stage'),W=()=>stage.clientWidth||680,H=()=>stage.clientHeight||480;
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setSize(W(),H());
+renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+scene.environment=new THREE.PMREMGenerator(renderer).fromScene(new THREE.RoomEnvironment(),0.04).texture;
+const camera=new THREE.PerspectiveCamera(26,W()/H(),0.05,10);
+const key=new THREE.DirectionalLight(0xfff1e4,1.25);key.position.set(0.35,0.55,0.75);scene.add(key);
+key.castShadow=true;key.shadow.mapSize.set(2048,2048);key.shadow.radius=3;key.shadow.bias=-0.0004;key.shadow.normalBias=0.003;
+Object.assign(key.shadow.camera,{left:-0.55,right:0.55,top:0.55,bottom:-0.6,near:0.2,far:2.2});key.shadow.camera.updateProjectionMatrix();
+const fillL=new THREE.DirectionalLight(0xe8eeff,0.25);fillL.position.set(-0.7,0.1,0.4);scene.add(fillL);
+const rim=new THREE.DirectionalLight(0xffffff,0.55);rim.position.set(-0.4,0.5,-0.7);scene.add(rim);
+const V3=THREE.Vector3,Q=THREE.Quaternion;
+const d2r=Math.PI/180;
+const NJ=HAND.names.length,JI={};HAND.names.forEach((n,i)=>JI[n]=i);
+const JP=HAND.joints.map(p=>new V3(...p));
+const TIP={};Object.keys(HAND.tips).forEach(k=>TIP[k]=new V3(...HAND.tips[k]));
+
+// ---- Loop subdivision as linear stencils, so any per-vertex data (positions, weights) can be refined ----
+function loopStencil(n,idx){
+  const edges=new Map(),nb=Array.from({length:n},()=>new Set());
+  const ek=(a,b)=>a<b?a*1e6+b:b*1e6+a;
+  for(let f=0;f<idx.length;f+=3){const t=[idx[f],idx[f+1],idx[f+2]];
+    for(let k=0;k<3;k++){const a=t[k],b=t[(k+1)%3],c=t[(k+2)%3];const key=ek(a,b);
+      if(!edges.has(key))edges.set(key,{a,b,opp:[]});edges.get(key).opp.push(c);nb[a].add(b);nb[b].add(a);}}
+  const bnd=Array.from({length:n},()=>[]);
+  edges.forEach(e=>{if(e.opp.length===1){bnd[e.a].push(e.b);bnd[e.b].push(e.a);}});
+  const st=[];
+  for(let i=0;i<n;i++){
+    if(bnd[i].length>=2){st.push([[i,0.75],[bnd[i][0],0.125],[bnd[i][1],0.125]]);continue;}
+    const k=nb[i].size;if(!k){st.push([[i,1]]);continue;}const beta=k===3?3/16:3/(8*k);const s=[[i,1-k*beta]];nb[i].forEach(j=>s.push([j,beta]));st.push(s);}
+  edges.forEach(e=>{e.i=st.length;
+    st.push(e.opp.length===2?[[e.a,3/8],[e.b,3/8],[e.opp[0],1/8],[e.opp[1],1/8]]:[[e.a,0.5],[e.b,0.5]]);});
+  const NI=[];
+  for(let f=0;f<idx.length;f+=3){const a=idx[f],b=idx[f+1],c=idx[f+2];
+    const ab=edges.get(ek(a,b)).i,bc=edges.get(ek(b,c)).i,ca=edges.get(ek(c,a)).i;
+    NI.push(a,ab,ca, b,bc,ab, c,ca,bc, ab,bc,ca);}
+  return {st,idx:NI,n:st.length};
+}
+function applySt(st,src,dim,out){
+  out=out||new Float32Array(st.length*dim);
+  for(let i=0;i<st.length;i++){const s=st[i];const o=i*dim;
+    for(let d=0;d<dim;d++)out[o+d]=0;
+    for(let k=0;k<s.length;k++){const j=s[k][0]*dim,w=s[k][1];for(let d=0;d<dim;d++)out[o+d]+=src[j+d]*w;}}
+  return out;
+}
+const nV0=HAND.verts.length/3;
+const L1=loopStencil(nV0,HAND.faces),L2=loopStencil(L1.n,L1.idx);
+const basePos=new Float32Array(HAND.verts);
+const denseW=new Float32Array(nV0*NJ);
+for(let v=0;v<nV0;v++)for(let k=0;k<4;k++)denseW[v*NJ+HAND.skinIdx[v*4+k]]+=HAND.skinW[v*4+k];
+const W2=applySt(L2.st,applySt(L1.st,denseW,NJ),NJ);
+const nV=L2.n;
+const skI=new Uint16Array(nV*4),skW=new Float32Array(nV*4);
+for(let v=0;v<nV;v++){
+  const row=[];for(let j=0;j<NJ;j++)row.push([j,W2[v*NJ+j]]);row.sort((a,b)=>b[1]-a[1]);
+  let s=0;for(let k=0;k<4;k++)s+=Math.max(0,row[k][1]);
+  for(let k=0;k<4;k++){skI[v*4+k]=row[k][0];skW[v*4+k]=Math.max(0,row[k][1])/(s||1);}
+}
+const tmp1=new Float32Array(L1.n*3),pos2=new Float32Array(nV*3);
+function refine(src){applySt(L1.st,src,3,tmp1);applySt(L2.st,tmp1,3,pos2);}
+refine(basePos);
+const geo=new THREE.BufferGeometry();
+geo.setAttribute('position',new THREE.BufferAttribute(pos2,3));
+geo.setAttribute('skinIndex',new THREE.BufferAttribute(skI,4));
+geo.setAttribute('skinWeight',new THREE.BufferAttribute(skW,4));
+geo.setIndex(L2.idx);geo.computeVertexNormals();
+// ---- skin shader (same as the generic-hand version) ----
+const skinU={uJ:{value:Array.from({length:20},()=>new V3())},uFlex:{value:new Float32Array(15)},uPalmN:{value:new V3()},uPalmC:{value:new V3()},uPalmU:{value:new V3()},uPalmV:{value:new V3()},uKey:{value:new V3()},uRim:{value:new V3()},uThen:{value:0}};
+const SKIN_GLSL=`
+uniform vec3 uJ[20];uniform float uFlex[15];uniform float uThen;uniform vec3 uPalmN;uniform vec3 uPalmC;uniform vec3 uPalmU;uniform vec3 uPalmV;
+float hsh(vec3 p){p=fract(p*0.3183099+0.1);p*=17.0;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
+float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
+ return mix(mix(mix(hsh(i),hsh(i+vec3(1,0,0)),f.x),mix(hsh(i+vec3(0,1,0)),hsh(i+vec3(1,1,0)),f.x),f.y),
+            mix(mix(hsh(i+vec3(0,0,1)),hsh(i+vec3(1,0,1)),f.x),mix(hsh(i+vec3(0,1,1)),hsh(i+vec3(1,1,1)),f.x),f.y),f.z);}
+float gs(float d,float w){return exp(-(d*d)/(w*w));}
+`;
+// bump from a procedural height field (derivative-based, no UVs needed)
+// light passing through thin tissue from behind (fingers, ears): red-shifted, strongest looking into the light
+const SSS_GLSL=`
+vec3 transmit(vec3 N,vec3 Vv,vec3 L,vec3 albedo,float thin){
+ vec3 H=normalize(L+N*0.35);float t=pow(clamp(dot(Vv,-H),0.0,1.0),3.0);
+ return albedo*vec3(1.0,0.26,0.13)*t*thin;}
+`;
+const PERTURB_GLSL=`
+vec3 myPerturb(vec3 surf_pos,vec3 surf_norm,vec2 dHdxy,float faceDirection){
+ vec3 vSigmaX=dFdx(surf_pos);vec3 vSigmaY=dFdy(surf_pos);vec3 vN=surf_norm;
+ vec3 R1=cross(vSigmaY,vN);vec3 R2=cross(vN,vSigmaX);float fDet=dot(vSigmaX,R1)*faceDirection;
+ vec3 vGrad=sign(fDet)*(dHdxy.x*R1+dHdxy.y*R2);return normalize(abs(fDet)*surf_norm-vGrad);}
+`;
+function makeSkin(u){
+  const m=new THREE.MeshPhysicalMaterial({color:0xd2a593,roughness:0.5,metalness:0,sheen:0.25,sheenRoughness:0.6,sheenColor:new THREE.Color(0xffb0a0),clearcoat:0.06,clearcoatRoughness:0.6,envMapIntensity:0.5,transparent:true});
+  m.onBeforeCompile=s=>{
+    Object.assign(s.uniforms,u);
+    s.vertexShader=SKIN_GLSL+'varying vec3 vRest;varying vec3 vRestN;\n'+s.vertexShader
+     .replace('#include <begin_vertex>','#include <begin_vertex>\nvRest=position;vRestN=normal;')
+     .replace('#include <skinning_vertex>',`#include <skinning_vertex>
+      {vec3 bul=vec3(0.0);
+       for(int f=0;f<5;f++){for(int j=0;j<3;j++){
+         int ji=f*4+j;vec3 J=uJ[ji];vec3 A=normalize(uJ[ji+1]-J);
+         vec3 r=position-J;float d=dot(r,A);vec3 rad=r-d*A;float rl=length(rad);
+         float near=1.0-smoothstep(0.009,0.015,rl);
+         vec3 pn=normalize(uPalmN-A*dot(uPalmN,A));
+         float side=dot(rad/max(rl,1e-5),pn);
+         float fl=uFlex[f*3+j];
+         float dors=smoothstep(0.1,0.8,-side),palm=smoothstep(0.2,0.8,side);
+         float w=gs(d,0.0075);
+         bul+=normalize(objectNormal)*(fl*w*near*(dors*0.0022-palm*0.0012));
+       }}
+       // thumb pad (thenar) swells as the thumb draws in across the palm
+       {vec3 C=mix(uJ[16],uJ[17],0.35);C+=(uPalmC-C)*0.3;float w=gs(length(position-C),0.017);
+        float pal=smoothstep(0.0,0.6,dot(normalize(objectNormal),uPalmN));
+        bul+=normalize(objectNormal)*clamp(uThen,0.0,1.2)*w*pal*0.0028;}
+       transformed+=bul;}`);
+    s.fragmentShader=SKIN_GLSL+PERTURB_GLSL+SSS_GLSL+`varying vec3 vRest;varying vec3 vRestN;uniform vec3 uKey,uRim;float gH=0.0,gThin=0.0;
+`+s.fragmentShader
+     .replace('#include <color_fragment>',`#include <color_fragment>
+      {vec3 p=vRest;vec3 n=normalize(vRestN);
+       float palmar=smoothstep(-0.15,0.55,dot(n,uPalmN));
+       float h=0.0;
+       float tipness=0.0;float knuck=0.0;float crease=0.0;
+       for(int f=0;f<5;f++){
+         for(int s=0;s<3;s++){
+           vec3 J=uJ[f*4+s],K=uJ[f*4+s+1];vec3 A=K-J;float L=length(A);A/=L;
+           vec3 r=p-J;float d=dot(r,A);float rl=length(r-d*A);
+           if(d<-0.004||d>L+0.006)continue;
+           float sc=f==4?0.016:0.0125;
+           if(rl>sc)continue;
+           if(f<4||s>0)gThin=max(gThin,1.0-smoothstep(0.5,1.0,rl/sc));
+           vec3 pn=normalize(uPalmN-A*dot(uPalmN,A));vec3 lat=normalize(cross(A,pn));
+           float side=dot(normalize(r-d*A),pn);float lx=dot(r,lat);
+           float pal=smoothstep(0.0,0.6,side),dor=smoothstep(0.0,0.6,-side);
+           if(s>0){
+             float dj=d+lx*lx*70.0;
+             float fj=uFlex[f*3+s];float wr=gs(d,0.0045)*dor*(s==1?1.0:0.55)*(1.0-smoothstep(0.003,0.0065,abs(lx)))*(1.0-0.75*smoothstep(0.3,1.2,fj));
+             float rip=sin(dj*2600.0+vnoise(p*900.0)*2.0)*0.5+0.5;
+             h-=wr*rip*0.00013;knuck+=wr*0.9;
+             float g1=(gs(d-0.0009,0.00045)+gs(d+0.0009,0.00045)*(s==1?1.0:0.0))*(0.6+0.9*smoothstep(0.2,1.2,fj));
+             h-=g1*pal*0.00018;crease+=g1*pal;
+           } else {
+             float dd=d-0.016-lx*lx*20.0;float g=gs(dd,0.0006)*pal;h-=g*0.00016;crease+=g;
+             knuck+=gs(d,0.007)*dor*0.6;
+           }
+           if(s==2){float tp=smoothstep(0.25*L,0.9*L,d);tipness=max(tipness,tp*(0.4+0.6*pal));}
+         }
+       }
+       vec3 q=p-uPalmC;float u=dot(q,uPalmU),v=dot(q,uPalmV);
+       float inPalm=palmar*(1.0-smoothstep(0.0,0.012,abs(dot(q,uPalmN))-0.02));
+       float life=gs(length(vec2(u+0.008,v+0.038))-0.040,0.0007)*step(u,0.035)*step(-0.035,u)*step(v,0.004);
+       float head=gs(u-0.006+0.25*(v+0.03),0.0007)*step(-0.04,v)*step(v,0.022);
+       float heart=gs(u-0.026+0.18*(v-0.02)+3.0*(v-0.01)*(v-0.01),0.0007)*step(-0.012,v)*step(v,0.04);
+       float lines=clamp(life+head+heart,0.0,1.0)*inPalm*smoothstep(0.045,0.03,length(vec2(u,v)));
+       h-=lines*0.00017;crease+=lines;
+       h+=(vnoise(p*2600.0)-0.5)*0.000018+(vnoise(p*700.0)-0.5)*0.000025;
+       gH=h;
+       vec3 base=diffuseColor.rgb;
+       vec3 col=base*mix(vec3(0.80,0.74,0.70),vec3(1.06,1.0,0.99),palmar);
+       col*=mix(vec3(1.0),vec3(1.0,0.80,0.78),tipness*0.55);
+       col*=mix(vec3(1.0),vec3(0.97,0.86,0.83),clamp(knuck,0.0,1.0)*0.5);
+       col*=1.0-clamp(crease,0.0,1.0)*0.18;
+       col*=0.96+0.08*vnoise(p*120.0);
+       col*=mix(vec3(1.0),vec3(1.0,0.93,0.92),0.4*vnoise(p*45.0+3.0));
+       diffuseColor.rgb=col;}`)
+     .replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=clamp(roughnessFactor+gH*900.0,0.3,0.8);')
+     .replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\nnormal=myPerturb(-vViewPosition,normal,vec2(dFdx(gH),dFdy(gH)),faceDirection);')
+     .replace('#include <dithering_fragment>',`
+       {vec3 N=normalize(normal);vec3 Lk=normalize(uKey);float ndl=dot(N,Lk);
+        float wrap=max(0.0,(ndl+0.45)/1.45)-max(ndl,0.0);
+        vec3 Vv=normalize(vViewPosition);float fr=pow(1.0-clamp(dot(N,Vv),0.0,1.0),3.0);
+        gl_FragColor.rgb+=diffuseColor.rgb*vec3(0.85,0.22,0.14)*(max(wrap,0.0)*0.32+fr*0.10);
+        gl_FragColor.rgb+=transmit(N,Vv,normalize(uRim),diffuseColor.rgb,gThin)*0.45;}
+       gl_FragColor.a*=smoothstep(-0.066,-0.018,vRest.y);
+       #include <dithering_fragment>`);
+  };
+  return m;
+}
+const nailMat=new THREE.MeshPhysicalMaterial({vertexColors:true,roughness:0.32,clearcoat:0.9,clearcoatRoughness:0.12,envMapIntensity:0.7});
+// ---- anatomy frame ----
+const FING=['index','middle','ring','pinky'];
+const CHAIN={};FING.forEach(f=>CHAIN[f]=[f+'-mc',f+'-mcp',f+'-pip',f+'-dip']);CHAIN.thumb=['thumb-cmc','thumb-mcp','thumb-ip'];
+const jp=n=>JP[JI[n]].clone();
+const seg=(f,k)=>{const c=CHAIN[f];const a=jp(c[k]);const b=k+1<c.length?jp(c[k+1]):TIP[f].clone();return b.sub(a);};
+const wr=jp('wrist'),iM=jp('index-mcp'),mM=jp('middle-mcp'),pM=jp('pinky-mcp');
+const pn=new V3().crossVectors(iM.clone().sub(wr),pM.clone().sub(wr)).normalize();
+const AX={};
+FING.forEach(f=>{AX[f]=[0,1,2,3].map(k=>{const a=seg(f,k);if(a.length()<1e-4)return null;a.normalize();
+  return {flex:new V3().crossVectors(a,pn).normalize(),abd:pn.clone().sub(a.clone().multiplyScalar(pn.dot(a))).normalize()};});});
+const along=mM.clone().sub(wr);along.sub(pn.clone().multiplyScalar(along.dot(pn))).normalize();
+const uln=new V3().crossVectors(pn,along);if(pM.clone().sub(iM).dot(uln)<0)uln.negate();
+AX.thumb={fl:[0,1,2].map(k=>{const a=seg('thumb',k).normalize();const fd=pn.clone().add(uln.clone().multiplyScalar(0.6));fd.sub(a.clone().multiplyScalar(fd.dot(a))).normalize();return new V3().crossVectors(a,fd).normalize();})};
+// shader joints: per finger [mcp,pip,dip,tip], thumb [cmc,mcp,ip,tip]
+[...FING,'thumb'].forEach((f,fi)=>{const c=f==='thumb'?CHAIN.thumb:CHAIN[f].slice(1);[...c.map(jp),TIP[f]].forEach((p,k)=>skinU.uJ.value[fi*4+k].copy(p));});
+skinU.uPalmN.value.copy(pn);
+skinU.uPalmC.value.copy(wr.clone().lerp(mM,0.55));
+const pu=mM.clone().sub(wr).normalize();skinU.uPalmU.value.copy(pu);
+skinU.uPalmV.value.copy(new V3().crossVectors(pn,pu).normalize());
+if(pM.clone().sub(iM).dot(skinU.uPalmV.value)<0)skinU.uPalmV.value.negate();
+
+// ---- nails: plates sampled from the dorsal fingertip surface, rigid on the distal bone ----
+function buildNails(){
+  const pos=geo.attributes.position.array;
+  const list=[...FING.map(f=>[f+'-dip',f,1.0]),['thumb-ip','thumb',1.15]];
+  list.forEach(([dn,tn,wscale])=>{
+    const D=jp(dn),T=TIP[tn];const A=T.clone().sub(D);const Lseg=A.length();A.normalize();
+    // nail faces away from the pad: fingers bend toward the palm normal, the thumb toward its own flex direction
+    const pad=tn==='thumb'?new V3().crossVectors(AX.thumb.fl[2],A):pn.clone();
+    const up=pad.negate().sub(A.clone().multiplyScalar(-pad.dot(A))).normalize();
+    const lat=new V3().crossVectors(A,up).normalize();
+    const near=[];for(let i=0;i<pos.length;i+=3){const r=new V3(pos[i]-D.x,pos[i+1]-D.y,pos[i+2]-D.z);const a=r.dot(A);
+        const rad=r.clone().sub(A.clone().multiplyScalar(a)).length();if(a>-0.004&&a<Lseg+0.012&&rad<0.012)near.push([a,r.dot(lat),r.dot(up)]);}
+    // exact dorsal surface height: raycast down (-up) onto the fingertip triangles
+    const ix0=geo.index.array,tri=[];
+    const inR=i=>{const r=new V3(pos[i*3]-D.x,pos[i*3+1]-D.y,pos[i*3+2]-D.z);const a=r.dot(A);return a>-0.006&&a<Lseg+0.014&&r.sub(A.clone().multiplyScalar(a)).length()<0.014;};
+    for(let f=0;f<ix0.length;f+=3)if(inR(ix0[f]))tri.push(ix0[f],ix0[f+1],ix0[f+2]);
+    const tg=new THREE.BufferGeometry();tg.setAttribute('position',geo.attributes.position);tg.setIndex(tri);
+    const tm=new THREE.Mesh(tg,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));
+    const rc=new THREE.Raycaster(),down=up.clone().negate();
+    const surf=(t,lx)=>{rc.set(D.clone().add(A.clone().multiplyScalar(t)).add(lat.clone().multiplyScalar(lx)).add(up.clone().multiplyScalar(0.03)),down);
+      const h=rc.intersectObject(tm,false);return h.length?0.03-h[0].distance:-1;};
+    let E=0;for(const [a,l,u] of near){if(a>E&&Math.hypot(l,u)<0.012)E=a;}
+    // finger silhouette at mid-nail: centre the nail on it and size it to its width
+    let lo=1,hi=-1;for(let l=-0.013;l<=0.013;l+=0.0002)if(surf(E*0.55,l)!==-1){lo=Math.min(lo,l);hi=Math.max(hi,l);}
+    const hw=(hi-lo)/2,lc=(hi+lo)/2;
+    const nw=hw*0.78*wscale;const s0=E*0.28,s1=E-0.0028;
+    const NS=22,NW=12;const vp=[],vc=[],ix=[],si=[],sw=[];
+    const bed=new THREE.Color(0xc07c76),lun=new THREE.Color(0xd9b2aa),free=new THREE.Color(0xeadbd0);
+    for(let a=0;a<=NS;a++){const s=a/NS;const t=s0+(s1-s0)*s;
+      let wf=1.0;if(s<0.22)wf=Math.sqrt(Math.max(0.02,1-Math.pow((0.22-s)/0.22,2)));if(s>0.9)wf=Math.sqrt(Math.max(0.3,1-Math.pow((s-0.9)/0.1,2)*0.6));
+      let prev=surf(t,lc);
+      for(let b=0;b<=NW;b++){const w=(b/NW)*2-1;const lx=lc+w*nw*wf;
+        let hh=surf(t,lx);if(hh===-1)hh=prev;prev=hh;
+        const edgeIn=Math.max(Math.pow(Math.abs(w),3),s<0.08?(0.08-s)/0.08:0);
+        const lift=0.0012-edgeIn*0.0009+(s>0.93?(s-0.93)*0.006:0);
+        const p=D.clone().add(A.clone().multiplyScalar(t)).add(lat.clone().multiplyScalar(lx)).add(up.clone().multiplyScalar(hh+lift));
+        vp.push(p.x,p.y,p.z);
+        let c=bed.clone();const lu=Math.max(0,1-Math.hypot(s/0.2,w/0.6));c.lerp(lun,Math.min(1,lu*1.2));
+        if(s>0.93)c.lerp(free,Math.min(1,(s-0.93)/0.05));
+        c.multiplyScalar(1-Math.pow(Math.abs(w),4)*0.12);
+        vc.push(c.r,c.g,c.b);si.push(JI[dn],0,0,0);sw.push(1,0,0,0);}}
+    for(let a=0;a<NS;a++)for(let b=0;b<NW;b++){const i0=a*(NW+1)+b,i1=i0+1,i2=i0+NW+1,i3=i2+1;ix.push(i0,i2,i1,i1,i2,i3);}
+    const ng=new THREE.BufferGeometry();ng.setAttribute('position',new THREE.Float32BufferAttribute(vp,3));
+    ng.setAttribute('color',new THREE.Float32BufferAttribute(vc,3));ng.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(si,4));
+    ng.setAttribute('skinWeight',new THREE.Float32BufferAttribute(sw,4));ng.setIndex(ix);ng.computeVertexNormals();
+    {const nrm=ng.attributes.normal;const c=Math.floor(nrm.count/2);if(new V3(nrm.getX(c),nrm.getY(c),nrm.getZ(c)).dot(up)<0){
+      const I=ng.index.array;for(let i=0;i<I.length;i+=3){const t=I[i+1];I[i+1]=I[i+2];I[i+2]=t;}ng.computeVertexNormals();}}
+    NAILGEO.push(ng);
+  });
+}
+const NAILGEO=[];buildNails();
+
+// ---- two hands: the signer's left is a mirrored right hand ----
+function makeHand(mirror){
+  const outer=new THREE.Group();if(mirror)outer.scale.x=-1;scene.add(outer);
+  const g=new THREE.Group();outer.add(g);
+  const u={};for(const k in skinU){const v=skinU[k].value;u[k]={value:Array.isArray(v)?v.map(x=>x.clone()):v instanceof Float32Array?new Float32Array(v):typeof v==="number"?v:v.clone()};}
+  const mat=makeSkin(u);
+  const bones=HAND.names.map(n=>{const b=new THREE.Bone();b.name=n;return b;});
+  HAND.parents.forEach((p,i)=>{if(p<0)bones[i].position.copy(JP[i]);else{bones[i].position.copy(JP[i]).sub(JP[p]);bones[p].add(bones[i]);}});
+  const mesh=new THREE.SkinnedMesh(geo,mat);mesh.frustumCulled=false;mesh.castShadow=mesh.receiveShadow=true;g.add(mesh);
+  mesh.add(bones[0]);mesh.updateMatrixWorld(true);const sk=new THREE.Skeleton(bones);mesh.bind(sk);
+  NAILGEO.forEach(ng=>{const nm=new THREE.SkinnedMesh(ng,nailMat);nm.frustumCulled=false;g.add(nm);nm.bind(sk,mesh.bindMatrix);});
+  return {outer,g,bones,mat,u,mirror};
+}
+const hands=(TL0||LIB).mirror.map(m=>makeHand(m));
+
+// ---- playback ----
+const NB=HAND.names.length;
+let TL=null,FR=null,ST=0,PS=1e-4,spans=[],EDGE=null;
+const qa=new Q(),qb=new Q();
+const FLEXB=[[2,3,4],[6,7,8],[10,11,12],[14,15,16]];
+const ang=q=>2*Math.acos(Math.min(1,Math.abs(q.w)));
+function setFrame(t){
+  const f0=Math.min(Math.floor(t),TL.n-1),f1=Math.min(f0+1,TL.n-1),a=t-f0;
+  hands.forEach((h,hi)=>{const o0=(f0*2+hi)*ST,o1=(f1*2+hi)*ST;
+    h.g.position.set((FR[o0]*(1-a)+FR[o1]*a)*PS,(FR[o0+1]*(1-a)+FR[o1+1]*a)*PS,(FR[o0+2]*(1-a)+FR[o1+2]*a)*PS);
+    for(let b=0;b<NB;b++){const p=3+b*4;
+      qa.set(FR[o0+p],FR[o0+p+1],FR[o0+p+2],FR[o0+p+3]).normalize();qb.set(FR[o1+p],FR[o1+p+1],FR[o1+p+2],FR[o1+p+3]).normalize();
+      h.bones[b].quaternion.copy(qa).slerp(qb,a);}
+    // knuckle bulge follows the bend of each joint
+    FLEXB.forEach((bs,fi)=>bs.forEach((b,k)=>h.u.uFlex.value[fi*3+k]=ang(h.bones[b].quaternion)));
+    h.u.uFlex.value[12]=0;h.u.uThen.value=ang(h.bones[17].quaternion);h.u.uFlex.value[13]=ang(h.bones[18].quaternion);h.u.uFlex.value[14]=ang(h.bones[19].quaternion);
+    h.outer.updateMatrixWorld(true);});
+}
+const words=document.getElementById('words');
+let t=0,playing=true,loop=true,speed=1,hold=0;
+const playB=document.getElementById('play');
+playB.onclick=()=>{playing=!playing;playB.textContent=playing?'Pause':'Play';};
+document.getElementById('replay').onclick=()=>{t=0;hold=0;playing=true;playB.textContent='Pause';};
+document.getElementById('speed').onchange=e=>speed=+e.target.value;
+const loopB=document.getElementById('loop');loopB.onclick=()=>{loop=!loop;loopB.textContent='Loop: '+(loop?'on':'off');loopB.setAttribute('aria-pressed',loop);};
+[['#f0d0c0',0xf0cdbd],['#e2b8a2',0xe2b39d],['#c8916f',0xc48c6c],['#9a6544',0x95603f],['#6a412a',0x63402b]].forEach(([c,hx],i)=>{
+  const s=document.createElement('button');s.className='tone';s.style.background=c;s.setAttribute('aria-label','Skin tone '+(i+1));
+  s.onclick=()=>hands.forEach(h=>h.mat.color.setHex(hx));document.getElementById('tones').appendChild(s);});
+hands.forEach(h=>h.mat.color.setHex(0xe2b39d));
+// fixed camera, as close as it can get while every joint of both hands stays in shot for the whole sequence
+// (each edge at its 99th percentile, so one stray tracked frame does not pull the camera back)
+function fit(){const n=TL.n,E=[0,1,2,3].map(()=>new Float32Array(n)),v=new V3();
+  for(let f=0;f<n;f++){setFrame(f);let x0=9,x1=-9,y0=9,y1=-9;
+    hands.forEach(h=>h.bones.forEach(b=>{b.getWorldPosition(v);x0=Math.min(x0,v.x);x1=Math.max(x1,v.x);y0=Math.min(y0,v.y);y1=Math.max(y1,v.y);}));
+    E[0][f]=-x0;E[1][f]=x1;E[2][f]=-y0;E[3][f]=y1;}
+  return E.map(A=>A.sort()[Math.round(0.99*(n-1))]);}
+const CT=new V3();
+function frame(){const [l,r,b,t]=EDGE,tf=Math.tan(camera.fov*Math.PI/360),w=l+r+0.09,h=b+t+0.09;
+  const d=Math.max(h/2/tf,w/2/tf/camera.aspect);CT.set((r-l)/2,(t-b)/2,0.15);
+  camera.position.set(CT.x,CT.y+0.03,CT.z+d);camera.lookAt(CT);}
+// show a timeline: words row, camera fit, play from the start
+function load(tl){TL=tl;FR=tl.frames;ST=tl.stride;PS=tl.ps||1e-4;
+  words.textContent='';spans=TL.segments.map(([s,e,l])=>{const sp=document.createElement('span');sp.textContent=l.toUpperCase();words.appendChild(sp);return sp;});
+  EDGE=fit();frame();t=0;hold=0;playing=true;playB.textContent='Pause';}
+if(TL0)load(TL0);
+// ---- library: every sign plus the alphabet, chained in the page (a port of hand3d.compose3d) ----
+if(LIB){
+  const L=LIB,NBn=L.nBones,SD=3+4*NBn,OF=L.outFps,HD=L.head,BN=L.bones,BW=(NBn-1)*3,RH=L.hands.indexOf('Right');
+  // undo the frame-to-frame differences (typed-array stores wrap exactly as the packer did)
+  Object.values(L.signs).forEach(([off,n,mask])=>{const nh=(mask&1)+((mask>>1)&1);
+    for(let s=0;s<nh;s++)for(let i=1;i<n;i++){const r=off+s*n+i;
+      for(let c=0;c<7;c++)HD[r*7+c]+=HD[(r-1)*7+c];for(let c=0;c<BW;c++)BN[r*BW+c]+=BN[(r-1)*BW+c];}});
+  const rest=Float32Array.from(L.rest),_a=new Q(),_b=new Q();
+  const mj=t=>t*t*t*(10-15*t+6*t*t);
+  function lerpPose(A,B,t){const o=new Float32Array(SD);for(let k=0;k<3;k++)o[k]=A[k]+(B[k]-A[k])*t;
+    for(let p=3;p<SD;p+=4){_a.fromArray(A,p);_b.fromArray(B,p);_a.slerp(_b,t).toArray(o,p);}return o;}
+  const glideN=(A,B,base)=>Math.max(Math.round(base*Math.min(1.6,Math.max(0.6,0.5+2*Math.hypot(B[0]-A[0],B[1]-A[1],B[2]-A[2])))),2);
+  function row(r){const o=new Float32Array(SD);for(let k=0;k<3;k++)o[k]=HD[r*7+k]/L.posScale;for(let k=0;k<4;k++)o[3+k]=HD[r*7+3+k]/32767;
+    for(let b=1;b<NBn;b++){const x=BN[r*BW+(b-1)*3]/127,y=BN[r*BW+(b-1)*3+1]/127,z=BN[r*BW+(b-1)*3+2]/127;
+      o.set([x,y,z,Math.sqrt(Math.max(0,1-x*x-y*y-z*z))],3+b*4);}return o;}
+  // a sign's tracks, one per hand (null where unused), upsampled from the stored rate
+  const memo=new Map();
+  function signTracks(g){if(memo.has(g))return memo.get(g);const [off,n,mask]=L.signs[g],up=OF/L.fps;let s=0;
+    const T=L.hands.map((_,h)=>{if(!(mask>>h&1))return null;const P=[];for(let i=0;i<n;i++)P.push(row(off+s*n+i));s++;
+      const out=[];for(let j=0;j<=(n-1)*up;j++){const a=j/up,i=Math.floor(a);out.push(i+1<n?lerpPose(P[i],P[i+1],a-i):P[i]);}return out;});
+    memo.set(g,T);return T;}
+  // the right hand spells; a doubled letter slides toward the signer's right (fingerspell.spell_track)
+  function spellTracks(word,holdS){const ls=[...word].filter(c=>L.letters[c]);if(!ls.length)return null;
+    const hold=Math.max(Math.round((holdS||L.hold)*OF),1),change=Math.max(Math.round(L.change*OF),2);const out=[];let prev=null;
+    ls.forEach((c,i)=>{let fr=L.letters[c].map(a=>Float32Array.from(a));const path=fr.length>1;
+      if(!path)fr=Array(hold).fill(fr[0]);
+      if(i&&c===ls[i-1]&&!path&&!(i>1&&c===ls[i-2]))fr=fr.map(p=>{const q=Float32Array.from(p);q[0]-=L.doubleShift;return q;});
+      if(prev)for(let k=1;k<change;k++)out.push(lerpPose(prev,fr[0],mj(k/change)));
+      out.push(...fr);prev=fr[fr.length-1];});
+    return L.hands.map((_,h)=>h===RH?out:null);}
+  function compose(items){const nT=Math.max(Math.round(L.transition*OF),2),out=[],segs=[];let cur=L.hands.map(()=>rest);
+    const glide=tg=>{const n=Math.max(...tg.map((p,h)=>glideN(cur[h],p,nT)));for(let k=1;k<=n;k++){const t=mj(k/n);out.push(tg.map((p,h)=>lerpPose(cur[h],p,t)));}};
+    items.forEach(({tracks:T,label})=>{const n=Math.max(...T.map(x=>x?x.length:0));const start=out.length;
+      glide(T.map(x=>x?x[0]:rest));for(let i=0;i<n;i++)out.push(T.map(x=>x?x[Math.min(i,x.length-1)]:rest));
+      cur=out[out.length-1];segs.push([start,out.length-1,label]);for(let k=Math.round(L.gap*OF);k>0;k--)out.push(cur);});
+    glide(L.hands.map(()=>rest));
+    const F=new Float32Array(out.length*2*SD);out.forEach((r,i)=>r.forEach((p,h)=>F.set(p,(i*2+h)*SD)));
+    return {n:out.length,stride:SD,fps:OF,segments:segs,frames:F,ps:1};}
+  // English to ASL order and signs (gloss.js): dropped English-only words, time first, FINISH for past,
+  // WH-sign last, plural nouns signed twice. Each item is a sign's tracks, or a word spelled letter by letter.
+  const VOC=Object.keys(L.signs),PLURAL_SHIFT=0.04;  // a repeated plural moves 4 cm toward the signer's right
+  const shifted=T=>T.map(x=>x&&x.map(p=>{const q=Float32Array.from(p);q[0]-=PLURAL_SHIFT;return q;}));
+  function parse(text,nlp){const r=toGloss(text,L,nlp),items=[],skipped=[];
+    r.items.forEach(x=>{if(x.spell){const T=spellTracks(x.spell);if(T)items.push({label:x.spell,tracks:T});else skipped.push(x.spell);return;}
+      const T=signTracks(x.gloss);items.push({label:x.gloss,tracks:T});if(x.rep)items.push({label:x.gloss,tracks:shifted(T)});});
+    return Object.assign(r,{items,skipped,order:items.map(x=>x.label).join(' ')});}
+  const $=id=>document.getElementById(id),note=$('note'),text=$('text');
+  function say(s,nlp){const r=parse(s,nlp);
+    note.textContent=[r.order?'ASL order: '+r.order:'',r.spelled.length?'Fingerspelled (no sign): '+r.spelled.join(', '):'',r.swapped.length?'Signed as: '+[...new Set(r.swapped)].join(', '):'',r.dropped.length?'Not signed in ASL: '+[...new Set(r.dropped)].join(', ').toLowerCase():'',r.added.length?'Added: '+[...new Set(r.added)].join(', '):'',
+      r.skipped.length?'Skipped: '+r.skipped.join(', '):''].filter(Boolean).join('. ');
+    if(r.items.length)load(compose(r.items));else if(!r.skipped.length)note.textContent='Type a word or sentence.';}
+  $('lib').hidden=false;$('abcCredit').hidden=false;
+  $('say').onsubmit=e=>{e.preventDefault();say(text.value);};
+  // The desktop app signs each spoken sentence; nlp is translate.analyze's spaCy reading (or null).
+  window.signText=(s,nlp)=>{text.value=s;say(s,nlp||null);};
+  const btn=(parent,label,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;parent.appendChild(b);return b;};
+  L.presets.forEach(p=>btn($('presets'),p.charAt(0)+p.slice(1).toLowerCase(),()=>{text.value=p.toLowerCase();say(p);}));
+  Object.keys(L.letters).forEach(c=>btn($('abc'),c,()=>{note.textContent='';load(compose([{label:c,tracks:spellTracks(c,1.0)}]));}));
+  const list=$('list'),items=VOC.slice().sort().map(g=>[g,btn(list,g.charAt(0)+g.slice(1).toLowerCase(),()=>{text.value=g.toLowerCase();say(g);})]);
+  const count=$('count');count.textContent='('+VOC.length+')';
+  $('find').oninput=e=>{const q=e.target.value.trim().toUpperCase();let k=0;items.forEach(([g,b])=>{const on=g.includes(q);b.hidden=!on;k+=on;});
+    count.textContent=q?'('+k+' of '+VOC.length+')':'('+VOC.length+')';};
+  text.value=L.presets[0].toLowerCase();say(L.presets[0]);
+}
+document.getElementById('msg').textContent='';
+window.player={scene,camera,renderer,geo,hands,get tl(){return TL;},load};window.seek=x=>{t=x;playing=false;setFrame(t);renderer.render(scene,camera);};
+let last=performance.now();
+(function tick(now){
+  const dt=Math.min((now-last)/1000,0.05);last=now;
+  if(playing){if(t<TL.n-1)t=Math.min(TL.n-1,t+dt*TL.fps*speed);else if(loop){hold+=dt;if(hold>0.8){t=0;hold=0;}}}
+  setFrame(t);
+  spans.forEach((sp,i)=>sp.classList.toggle('on',t>=TL.segments[i][0]&&t<=TL.segments[i][1]));
+  skinU.uKey.value.copy(key.position).normalize().transformDirection(camera.matrixWorldInverse);
+  skinU.uRim.value.copy(rim.position).normalize().transformDirection(camera.matrixWorldInverse);
+  hands.forEach(h=>{h.u.uKey.value.copy(skinU.uKey.value);h.u.uRim.value.copy(skinU.uRim.value);});
+  renderer.render(scene,camera);requestAnimationFrame(tick);
+})(last);
+addEventListener('resize',()=>{renderer.setSize(W(),H());camera.aspect=W()/H();camera.updateProjectionMatrix();frame();});
+})().catch(e=>{document.getElementById('msg').textContent='Could not start the player: '+e.message;console.error(e);});
+</script>
+</body></html>

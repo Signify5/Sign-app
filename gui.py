@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QPushButton,
+    QSplitter,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -18,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from engine import VoskAdapter
 from session import SignifySession
+from sign_panel import SignPanel
 from vad import SileroVAD
 
 _STATUS_STYLES = {
@@ -37,8 +39,8 @@ class MainWindow(QMainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Signify -- Speech to Text")
-        self.resize(420, 500)
+        self.setWindowTitle("Signify -- Speech to ASL")
+        self.resize(1100, 600)
 
         self._session: Optional[SignifySession] = None
         self._finalized_lines: list[str] = []
@@ -83,7 +85,12 @@ class MainWindow(QMainWindow):
         export_row.addWidget(self.export_btn)
         layout.addLayout(export_row)
 
-        self.setCentralWidget(central)
+        self.sign_panel = SignPanel()
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.addWidget(central)
+        splitter.addWidget(self.sign_panel)
+        splitter.setSizes([380, 720])
+        self.setCentralWidget(splitter)
 
     def _set_status_style(self, state: str, text: str) -> None:
         bg, fg = _STATUS_STYLES.get(state, _STATUS_STYLES["idle"])
@@ -112,6 +119,7 @@ class MainWindow(QMainWindow):
         self._finalized_lines.append(text)
         self._current_partial = ""
         self._refresh_transcript_display()
+        self.sign_panel.sign(text)
 
     @Slot(str, str)
     def _on_status(self, state: str, detail: str) -> None:
