@@ -1,6 +1,6 @@
 """English to ASL gloss translation"""
 
-from future import annotations
+from __future__ import annotations
 import spacy
 
 nlp = spacy.load("en_core_web_sm")
