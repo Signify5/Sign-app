@@ -22,5 +22,8 @@ requests>=2.31
 # interception with a locally-generated root cert (e.g. Norton, Zscaler).
 pip-system-certs>=4.0
 
+# Text to ASL (step 2, translate.py): spaCy and its English model -- see requirements-gloss.txt
+-r requirements-gloss.txt
+
 # Dev / test
 pytest>=8.0

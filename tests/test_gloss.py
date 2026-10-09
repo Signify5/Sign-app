@@ -26,15 +26,20 @@ LEX = {
 pytestmark = pytest.mark.skipif(not shutil.which("node"), reason="node not installed")
 
 
-def gloss(text: str) -> dict:
+def gloss(text: str, nlp=None, lex=LEX) -> dict:
     js = f"const {{toGloss}}=require({json.dumps(str(GLOSS_JS))});" \
-         f"console.log(JSON.stringify(toGloss({json.dumps(text)},{json.dumps(LEX)})))"
+         f"console.log(JSON.stringify(toGloss({json.dumps(text)},{json.dumps(lex)},{json.dumps(nlp)})))"
     return json.loads(subprocess.run(["node", "-e", js], capture_output=True, text=True, check=True).stdout)
 
 
-def order(text: str) -> str:
+def order(text: str, nlp=None, lex=LEX) -> str:
     return " ".join((x["gloss"] + "+" if x.get("rep") else x["gloss"]) if "gloss" in x else "#" + x["spell"]
-                    for x in gloss(text)["items"])
+                    for x in gloss(text, nlp, lex)["items"])
+
+
+def nlp(*rows):
+    """Hand-written spaCy readings: (word, lemma, pos, tag[, neg])."""
+    return [{"word": r[0], "lemma": r[1], "pos": r[2], "tag": r[3], "neg": len(r) > 4 and r[4]} for r in rows]
 
 
 def test_drops_english_only_words():
@@ -80,3 +85,30 @@ def test_report():
     r = gloss("Thanks, I ate the xyzzy.")
     assert r["spelled"] == ["XYZZY"] and "THE" in r["dropped"] and r["added"] == ["FINISH"]
     assert "thanks = THANK YOU" in r["swapped"]
+
+
+def test_spacy_reading_decides_noun_or_verb():
+    lex = dict(LEX, signs=dict(LEX["signs"], ROOM=1, HE=1), alias=dict(LEX["alias"], BOOKED=["BOOK"]),
+               tags=dict(LEX["tags"], BOOKED="ED"))
+    # the word list says BOOK is a noun, so BOOKS alone would be a plural; spaCy reads the verb here
+    he_books = nlp(("HE", "HE", "PRON", "PRP"), ("BOOKS", "BOOK", "VERB", "VBZ"), ("A", "A", "DET", "DT"),
+                   ("ROOM", "ROOM", "NOUN", "NN"))
+    assert order("he books a room", he_books, lex) == "HE BOOK ROOM"
+    assert order("he books a room", None, lex) == "HE BOOK+ ROOM"  # without spaCy
+    my_books = nlp(("I", "I", "PRON", "PRP"), ("LIKE", "LIKE", "VERB", "VBP"), ("BOOKS", "BOOK", "NOUN", "NNS"))
+    assert order("I like books", my_books, lex) == "I LIKE BOOK+"
+    booked = nlp(("I", "I", "PRON", "PRP"), ("BOOKED", "BOOK", "VERB", "VBD"), ("A", "A", "DET", "DT"),
+                 ("ROOM", "ROOM", "NOUN", "NN"))
+    assert order("I booked a room", booked, lex) == "I BOOK ROOM FINISH"
+
+
+def test_spacy_dictionary_form_fills_gaps_but_not_with_a_noun_sign_for_a_verb():
+    lex = dict(LEX, signs=dict(LEX["signs"], BIG=1, FIRE=1, THEY=1), nouns=LEX["nouns"] + ["FIRE"])
+    bigger = nlp(("CAT", "CAT", "NOUN", "NN"), ("BIGGER", "BIG", "ADJ", "JJR"))
+    assert order("cat bigger", bigger, lex) == "CAT BIG"
+    fired = nlp(("THEY", "THEY", "PRON", "PRP"), ("FIRED", "FIRE", "VERB", "VBD"), ("ME", "I", "PRON", "PRP"))
+    assert "#FIRED" in order("they fired me", fired, lex).split()
+
+
+def test_spacy_reading_out_of_step_is_ignored():
+    assert order("I ate pizza", nlp(("SOMETHING", "ELSE", "NOUN", "NN"))) == "I EAT PIZZA FINISH"

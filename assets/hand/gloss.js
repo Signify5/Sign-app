@@ -2,8 +2,11 @@
 //
 // lex: {signs: {GLOSS: ...}, alias: {WORD: [GLOSS, ...]}, tags: {WORD: S|ING|ED|LY|PAST|PL},
 //       nouns: [GLOSS, ...], drop: [WORD, ...]}
-// toGloss(text, lex) -> {items, spelled, dropped, swapped, added}. An item is {gloss, word, rep} (rep: a plural
+// toGloss(text, lex, nlp) -> {items, spelled, dropped, swapped, added}. An item is {gloss, word, rep} (rep: a plural
 // noun signed twice) or {spell: WORD} for a word with no sign.
+// nlp (optional, translate.analyze): spaCy's reading of each word, [{word, lemma, pos, tag, neg}, ...]. With it, a
+// word without a sign falls back to its dictionary form (BIGGER = BIG), and noun or verb, past tense and plural
+// come from the sentence (my BOOKS, he BOOKS a room) instead of the word list.
 //
 // Rules, per sentence:
 //  1. Words become signs, longest run first (THANK YOU, HARD OF HEARING), then aliases and word forms
@@ -39,7 +42,10 @@
       .map(x => x.replace(/^'+|'+$/g, '')).filter(Boolean);
   }
 
-  function toGloss(text, lex) {
+  // spaCy's fine tag -> the word-form tag the rules read
+  const NLP_TAG = {VBD: 'PAST', VBN: 'PAST', VBZ: 'S', NNS: 'S', NNPS: 'S', VBG: 'ING'};
+
+  function toGloss(text, lex, nlp) {
     const signs = lex.signs, alias = lex.alias || {}, tags = lex.tags || {}, nouns = new Set(lex.nouns || []);
     const drop = new Set([...(lex.drop || []), 'TO']);
     const has = g => !!signs[g];
@@ -52,23 +58,30 @@
     };
     const maxw = Math.max(1, ...Object.keys(signs).concat(Object.keys(alias)).map(g => g.split(' ').length));
     const out = {items: [], spelled: [], dropped: [], swapped: [], added: []};
-    const single = words(text).length === 1;  // a lone word is always signed or spelled, never dropped
+    const all = words(text), single = all.length === 1;  // a lone word is always signed or spelled, never dropped
+    if (nlp && (nlp.length !== all.length || nlp.some((x, i) => x.word !== all[i]))) nlp = null;  // out of step
+    const isNoun = x => x.nlp ? x.nlp.pos === 'NOUN' || x.nlp.pos === 'PROPN' : nouns.has(x.g);
+    let wi = 0;
     for (const sentence of text.split(/(?<=[.!?;])\s*/).filter(s => words(s).length)) {
       const question = /\?\s*$/.test(sentence.trim());
-      const w = words(sentence);
+      const w = words(sentence), info = nlp ? nlp.slice(wi, wi + w.length) : [];
+      wi += w.length;
       // 1. tokens {g, word, tag, kind: sign|num|drop|spell}
       let t = [];
       for (let i = 0; i < w.length;) {
         let n = Math.min(maxw, w.length - i);
         for (; n > 1 && !glossesOf(w.slice(i, i + n).join(' ')); n--);
-        const k = w.slice(i, i + n).join(' ');
+        const k = w.slice(i, i + n).join(' '), nl = n === 1 ? info[i] || null : null;
         i += n;
         if (n === 1 && drop.has(k) && !single) { t.push({g: null, word: k, kind: 'drop'}); continue; }
-        const gs = glossesOf(k);
+        let gs = glossesOf(k), tag = tags[k] || null;
+        // no sign for the word as written: try its dictionary form, but never a noun's sign for a verb (FIRED
+        // is not the FIRE sign; the verb forms a noun sign does take are already in the alias table)
+        const lem = nl && !gs && nl.lemma && nl.lemma !== k ? glossesOf(nl.lemma) : null;
+        if (lem && !(nl.pos === 'VERB' && nouns.has(lem[lem.length - 1]))) { gs = lem; tag = NLP_TAG[nl.tag] || null; }
         if (gs) {
           if (gs.join(' ') !== k) out.swapped.push(k.toLowerCase() + ' = ' + gs.join(' '));
-          const tag = tags[k] || null;
-          gs.forEach((g, j) => t.push({g, word: k, tag: j === gs.length - 1 ? tag : null, kind: 'sign'}));
+          gs.forEach((g, j) => t.push({g, word: k, tag: j === gs.length - 1 ? tag : null, kind: 'sign', nlp: nl}));
         } else if (/^[0-9]+$/.test(k)) {
           (+k <= 10 && has(NUM[+k]) ? [NUM[+k]] : [...k].map(d => NUM[d])).filter(has)
             .forEach(g => t.push({g, word: k, kind: 'num'}));
@@ -78,22 +91,23 @@
       // 2. GOING TO + verb -> WILL, HAVE TO -> MUST
       t.forEach((x, k) => {
         const next = t[k + 2];
-        if (x.word === 'GOING' && W(k + 1) === 'TO' && next && next.kind === 'sign' && !nouns.has(next.g) && has('WILL'))
+        if (x.word === 'GOING' && W(k + 1) === 'TO' && next && next.kind === 'sign' && !isNoun(next) && has('WILL'))
           Object.assign(x, {g: 'WILL', tag: null});
         if (['HAVE', 'HAS', 'HAD'].includes(x.word) && W(k + 1) === 'TO' && has('MUST'))
           Object.assign(x, {g: 'MUST', tag: null});
         // HAVE + past verb is English's perfect (I have eaten), not owning: ASL marks it with FINISH alone
-        else if (['HAVE', 'HAS', 'HAD'].includes(x.word) && t[k + 1] && ['PAST', 'ED'].includes(t[k + 1].tag)
-                 && !nouns.has(t[k + 1].g))
+        else if (['HAVE', 'HAS', 'HAD'].includes(x.word) && t[k + 1] && !isNoun(t[k + 1])
+                 && (t[k + 1].nlp ? t[k + 1].nlp.tag === 'VBN' : ['PAST', 'ED'].includes(t[k + 1].tag)))
           Object.assign(x, {g: null, kind: 'drop'});
       });
       // tense, read from the English before anything moves
-      const negated = t.some(x => NEG.has(x.g));
+      const negated = t.some(x => NEG.has(x.g) || x.nlp && x.nlp.neg);
       let pastVerb = null, pastAux = false;
       t.forEach((x, k) => {
         const afterBe = k > 0 && BE.has(t[k - 1].word);  // I am tired: an adjective, not a past verb
-        if (!pastVerb && x.kind === 'sign' && (x.tag === 'PAST' || x.tag === 'ED' && !afterBe) && !nouns.has(x.g))
-          pastVerb = x;
+        const past = x.nlp ? x.nlp.pos === 'VERB' && (x.nlp.tag === 'VBD' || x.nlp.tag === 'VBN' && !afterBe)
+                           : (x.tag === 'PAST' || x.tag === 'ED' && !afterBe) && !nouns.has(x.g);
+        if (!pastVerb && x.kind === 'sign' && past) pastVerb = x;
         if (PAST_AUX.has(x.word)) pastAux = true;
       });
       // 3. time phrases to the front
@@ -130,7 +144,8 @@
       t = time.concat(t);
       // 6. plurals (counted in English order, before a WH-sign moves: HOW MANY CAT)
       t.forEach((x, k) => {
-        if (x.kind !== 'sign' || (x.tag !== 'S' && x.tag !== 'PL') || !nouns.has(x.g)) return;
+        const plural = x.nlp ? ['NNS', 'NNPS'].includes(x.nlp.tag) : (x.tag === 'S' || x.tag === 'PL') && nouns.has(x.g);
+        if (x.kind !== 'sign' || !plural) return;
         x.rep = ![t[k - 1], t[k - 2]].some(y => y && (y.kind === 'num' || QUANT.has(y.g)));
       });
       // 5. WH-question: the question sign goes last
