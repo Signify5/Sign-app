@@ -8,6 +8,7 @@ from engine import StatusEvent
 
 SIGN = "sign"
 FINGERSPELL = "fingerspell"
+FS_PREFIX = "FS:"
 
 
 @dataclass(frozen=True)
@@ -37,7 +38,7 @@ def build_playlist(
 ) -> Playlist:
     """Ordered clips for a gloss list. Never raises for a missing word.
 
-    A gloss with no clip is fingerspelled; characters with no letter clip, and
+    A gloss with no clip is fingerspelled (so is gloss.py's FS:WORD, unless the library has WORD); characters with no letter clip, and
     glosses that cannot be played at all, are reported as 'warning' status events.
     With `authored_letters` the player spells from its own handshapes (fingerspell.py), so a
     fingerspelled item carries no clips and only characters outside A-Z are dropped.
@@ -51,6 +52,8 @@ def build_playlist(
 
     for raw in glosses:
         gloss = normalize_gloss(raw)
+        if gloss.startswith(FS_PREFIX):  # gloss.py marks words it has no sign for: FS:WORD
+            gloss = gloss[len(FS_PREFIX):].strip()
         if not gloss:
             continue
 

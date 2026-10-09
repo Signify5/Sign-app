@@ -91,3 +91,9 @@ def test_authored_letters_spell_without_letter_clips():
     spelled = playlist.items[1]
     assert (spelled.gloss, spelled.kind, spelled.clips) == ("XYZ-2", FINGERSPELL, ())
     assert any("cannot spell 2" in e.detail for e in events)
+
+
+def test_fs_prefix_from_gloss_py_spells_the_word_not_the_prefix():
+    playlist = build_playlist(["FS:CAB", "fs:hello"], make_index())
+    assert [(i.gloss, i.kind) for i in playlist.items] == [("CAB", FINGERSPELL), ("HELLO", SIGN)]
+    assert [c.clip_id for c in playlist.items[0].clips] == ["letter-c", "a1", "b1"]
