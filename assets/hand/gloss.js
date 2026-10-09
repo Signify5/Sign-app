@@ -151,7 +151,10 @@
       // 5. WH-question: the question sign goes last
       const wh = t.findIndex(x => WH.has(x.g));
       const startsWh = WH.has(w[0]) || time.length && wh === time.length;
-      if (wh >= 0 && startsWh && t.length > 1 && (question || AUX.has(w[1]))) {
+      // speech has no '?': a question is told by its shape, a helper verb after the WH-word (WHERE IS, WHAT DO)
+      // or a sentence opening with HOW MANY / HOW MUCH
+      const shaped = AUX.has(w[1]) || w[0] === 'HOW' && QUANT.has(w[1]);
+      if (wh >= 0 && startsWh && t.length > 1 && (question || shaped)) {
         const n = t[wh].g === 'HOW' && QUANT.has(W(wh + 1)) ? 2 : 1;  // HOW MANY, HOW MUCH stay together
         t.push(...t.splice(wh, n));
       }

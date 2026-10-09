@@ -71,6 +71,8 @@ def test_wh_questions():
     assert order("What is your name?") == "YOUR NAME WHAT"
     assert order("Where do you live?") == "YOU LIVE WHERE"
     assert order("How many cats do you have?") == "CAT YOU HAVE HOW MANY"
+    assert order("How many cats do you have.") == "CAT YOU HAVE HOW MANY"  # speech: no question mark
+    assert order("where is the store.") == "STORE WHERE"
 
 
 def test_plurals():
