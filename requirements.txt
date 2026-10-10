@@ -1,26 +1,30 @@
-# Core GUI / audio / VAD
+# Everything Signify needs, all three steps. Install inside a venv (see README.md):
+#   pip install -r requirements.txt
+
+# Step 1, speech to text: the desktop window, the microphone, voice detection
 PySide6>=6.6
 sounddevice>=0.4.6
 numpy>=1.26
 soundfile>=0.12
 silero-vad>=5.1
-
-# Transcription engine
 vosk>=0.3.45
 
-# Gloss to ASL (gloss_to_asl/animate.py): hand and pose tracking of the sign videos
+# Step 2, text to ASL gloss: spaCy and its small English model
+spacy>=3.7
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+
+# Step 3, gloss to ASL: tracking the hands in the sign videos, and the letter handshapes
 mediapipe>=0.10
 opencv-python>=4.9
+scipy>=1.11
 
-# Model downloads (speech_to_text/setup_models.py)
+# Downloading the models and the sign videos
 requests>=2.31
-# Makes Python trust the Windows system certificate store (not just certifi's
-# bundled list) -- needed on machines where an antivirus/proxy does TLS
-# interception with a locally-generated root cert (e.g. Norton, Zscaler).
+# Makes Python trust the Windows certificate store (not just certifi's own list) --
+# needed where an antivirus or proxy inspects HTTPS with its own root certificate (e.g. Norton, Zscaler).
 pip-system-certs>=4.0
 
-# Text to ASL (step 2, translate.py): spaCy and its English model -- see requirements-gloss.txt
--r requirements-gloss.txt
-
-# Dev / test
+# Tests
 pytest>=8.0
+
+# Only for gloss_to_asl/tools/build_nouns.py (rebuilding the noun list): pip install nltk

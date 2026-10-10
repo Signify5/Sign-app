@@ -24,6 +24,7 @@ LIB_FPS = 15.0  # stored rate; the page upsamples to FPS when it chains signs
 GAP_S = 0.1
 POS_SCALE = 1e4  # 0.1 mm
 FAILED_FAULTS = 10  # signcheck.py scores a serious problem 10, a warning 1
+SITE_TEMPLATE = Path(__file__).resolve().parent / "assets" / "hand" / "site_tpl.html"  # the website around the player
 GLOSS_JS = Path(__file__).resolve().parent / "assets" / "hand" / "gloss.js"  # English -> ASL sign order
 NOUNS_PATH = GLOSS_JS.with_name("nouns.txt")  # glosses that are mainly nouns (tools/build_nouns.py)
 
@@ -137,8 +138,12 @@ def pack_library(rig: Rig, index: ClipIndex, glosses: Sequence[str],
     }
 
 
-def write_library(lib: dict, out: Path, rig: Rig, title: str = "ASL signs and alphabet") -> Path:
-    html = TEMPLATE_PATH.read_text(encoding="utf-8")
+def write_library(lib: dict, out: Path, rig: Rig, title: str = "ASL signs and alphabet",
+                  template: Path = TEMPLATE_PATH, nav: str = "") -> Path:
+    html = template.read_text(encoding="utf-8").replace("<!--NAV-->", nav)
+    if "/*ENGINE*/" in html:  # a page of its own around the player's scripts (the website)
+        player = TEMPLATE_PATH.read_text(encoding="utf-8")
+        html = html.replace("/*ENGINE*/", player[player.index("<script src="):player.rindex("</body>")])
     html = (html.replace("/*TITLE*/", title)
                 .replace("/*RIG*/", json.dumps(pack_rig(rig), separators=(",", ":")))
                 .replace("/*TIMELINE*/", "null")
@@ -172,6 +177,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     ap.add_argument("-o", "--out", type=Path, default=Path("exports") / "library.html")
     ap.add_argument("--limit", type=int, help="only the first N glosses (for a quick test build)")
     ap.add_argument("--open", action="store_true", help="open the page in the browser")
+    ap.add_argument("--web", type=Path, help="also write the website into this folder: index.html (mic page) and library.html")
     ap.add_argument("--keep-failed", action="store_true", help="also sign glosses that fail a serious sign check")
     args = ap.parse_args(argv)
 
@@ -190,6 +196,11 @@ def main(argv: Optional[List[str]] = None) -> None:
         print("alias left out:", note)
     path = write_library(lib, args.out, rig)
     print(f"wrote {path} ({path.stat().st_size // 1024} KB)")
+    if args.web:
+        for page in (write_library(lib, args.web / "index.html", rig, title="Signify", template=SITE_TEMPLATE),
+                     write_library(lib, args.web / "library.html", rig, title="Sign library",
+                                   nav='<nav class="nav"><a href="/">Back to speech to ASL</a></nav>')):
+            print(f"wrote {page} ({page.stat().st_size // 1024} KB)")
     if args.open:
         webbrowser.open(path.resolve().as_uri())
 

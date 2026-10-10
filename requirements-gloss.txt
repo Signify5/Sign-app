@@ -1,4 +1,0 @@
-# Track 2: Text to ASL gloss translation
-spacy>=3.7
-# After installing, also run (since it's the actual English model which doesn't download automatically):
-# python -m spacy download en_core_web_sm

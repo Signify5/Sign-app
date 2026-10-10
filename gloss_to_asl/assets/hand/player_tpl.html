@@ -9,6 +9,8 @@
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
 main{max-width:880px;margin:0 auto;padding:20px 16px 32px}
 h1{font-size:15px;font-weight:600;margin:0 0 12px}
+.nav{margin:0 0 10px;font-size:14px}
+.nav a{color:var(--text)}
 #view{position:relative;width:100%;height:min(80vh,760px);border:1px solid var(--line);border-radius:6px;overflow:hidden}
 #stage{position:absolute;inset:0}
 #msg{position:absolute;left:12px;bottom:10px;font-size:13px;color:var(--muted)}
@@ -35,6 +37,7 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .list button{display:block;width:100%;text-align:left;border:0;border-radius:0;padding:3px 0;font-size:13px}
 .list button:hover{text-decoration:underline}
 </style></head><body><main>
+<!--NAV-->
 <h1>/*TITLE*/</h1>
 <div id="view"><div id="stage" role="img" aria-label="3D hands signing the words below"></div><div id="msg">Loading...</div></div>
 <div id="words" aria-live="polite"></div>
@@ -432,7 +435,8 @@ if(LIB){
   function say(s,nlp){const r=parse(s,nlp);
     note.textContent=[r.order?'ASL order: '+r.order:'',r.spelled.length?'Fingerspelled (no sign): '+r.spelled.join(', '):'',r.swapped.length?'Signed as: '+[...new Set(r.swapped)].join(', '):'',r.dropped.length?'Not signed in ASL: '+[...new Set(r.dropped)].join(', ').toLowerCase():'',r.added.length?'Added: '+[...new Set(r.added)].join(', '):'',
       r.skipped.length?'Skipped: '+r.skipped.join(', '):''].filter(Boolean).join('. ');
-    if(r.items.length)load(compose(r.items));else if(!r.skipped.length)note.textContent='Type a word or sentence.';}
+    if(r.items.length)load(compose(r.items));else if(!r.skipped.length)note.textContent='Type a word or sentence.';
+    document.dispatchEvent(new CustomEvent('signed',{detail:{text:s,nlp,result:r}}));}
   $('lib').hidden=false;$('abcCredit').hidden=false;
   $('say').onsubmit=e=>{e.preventDefault();say(text.value);};
   // The desktop app signs each spoken sentence; nlp is translate.analyze's spaCy reading (or null).
@@ -447,7 +451,7 @@ if(LIB){
   text.value=L.presets[0].toLowerCase();say(L.presets[0]);
 }
 document.getElementById('msg').textContent='';
-window.player={scene,camera,renderer,geo,hands,get tl(){return TL;},load};window.seek=x=>{t=x;playing=false;setFrame(t);renderer.render(scene,camera);};
+window.player={scene,camera,renderer,geo,hands,HAND,get tl(){return TL;},get t(){return t;},load};window.seek=x=>{t=x;playing=false;setFrame(t);renderer.render(scene,camera);};
 let last=performance.now();
 (function tick(now){
   const dt=Math.min((now-last)/1000,0.05);last=now;
