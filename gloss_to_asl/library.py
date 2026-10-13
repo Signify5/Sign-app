@@ -154,7 +154,7 @@ def write_pages(lib: dict, rig: Rig, out: Path, web: Optional[Path] = None) -> L
     if web:
         pages += [write_library(lib, web / "index.html", rig, title="Signify", template=SITE_TEMPLATE),
                   write_library(lib, web / "library.html", rig, title="Sign library",
-                                nav='<nav class="nav"><a href="/">Back to speech to ASL</a></nav>')]
+                                nav='<nav class="nav"><a href="index.html">Back to speech to ASL</a></nav>')]
     return pages
 
 

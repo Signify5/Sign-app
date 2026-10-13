@@ -59,6 +59,18 @@ Then open http://localhost:8000 in **Chrome or Edge**.
 - The mic button uses the browser's own speech recognition. It only works in Chrome and Edge, and it sends your voice to Google or Microsoft to turn it into text.
 - Typing a sentence works in any browser.
 
+### Host on GitHub Pages
+
+This repo includes a GitHub Actions workflow at `.github/workflows/deploy-pages.yml` that builds and deploys `web/` to GitHub Pages on every push to `main`.
+
+To enable it:
+
+1. Open **Settings → Pages** in the repository.
+2. Set **Source** to **GitHub Actions**.
+3. Push to `main` (or run the workflow manually from the Actions tab).
+
+After deployment, the site is public on GitHub Pages with no password gate.
+
 ## Licenses and data: read before sharing
 
 - **3D hands:** MakeHuman base mesh, skeleton and weights, CC0, free to use.
