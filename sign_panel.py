@@ -1,6 +1,7 @@
 """The 3D hands inside the main window: each spoken sentence is signed on the library page.
 
-The page is exports/library.html (built by `python -m gloss_to_asl.library`). It loads three.js from a CDN, so the
+The page is exports/library.html, built on first run from the signs kept in git (or by
+`python -m gloss_to_asl.library`). It loads three.js from a CDN, so the
 hands need an internet connection. spaCy (step 2, translate.py) reads each sentence for the page's sign
 rules (gloss.js); without spaCy installed the page's own rules still sign it.
 """
@@ -24,6 +25,14 @@ except ImportError:  # PySide6 built without Qt WebEngine
     QWebEngineView = None
 
 
+def _build_page(page: Path) -> None:
+    """Write the library page from gloss_to_asl/assets/signs.json.gz (a second or two)."""
+    from gloss_to_asl.hand3d import Rig
+    from gloss_to_asl.library import PACK_PATH, load_pack, write_library
+    if PACK_PATH.exists():
+        write_library(load_pack(), page, Rig.load())
+
+
 class SignPanel(QWidget):
     def __init__(self, page: Path = LIBRARY_PAGE) -> None:
         super().__init__()
@@ -37,6 +46,8 @@ class SignPanel(QWidget):
         if QWebEngineView is None:
             problem = "The 3D hands need Qt WebEngine (pip install PySide6-Addons)."
         elif not page.exists():
+            _build_page(page)
+        if not problem and not page.exists():
             problem = f"No sign library yet. Build it with: python -m gloss_to_asl.library\n(expected {page})"
         if problem:
             label = QLabel(problem)
