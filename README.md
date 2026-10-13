@@ -21,12 +21,13 @@ git clone https://github.com/prasada29-gif/Sign-app.git signify
 ```bash
 cd signify
 ```
-### Windows
+
+Windows:
 ```bash
 python setup.py
 ```
 
-### Mac or Linux
+Mac or Linux:
 ```bash
 python3 setup.py
 ```
