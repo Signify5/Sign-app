@@ -1,5 +1,3 @@
-"""English to ASL gloss translation"""
-
 from __future__ import annotations
 import spacy
 
@@ -14,12 +12,11 @@ LEXICON: dict[str, str] = {
 
 TIME_WORDS = {"tomorrow", "today", "yesterday", "tonight", "now", "later", "soon", "week"}
 def to_gloss(text: str) -> list[str]:
-    """Translate a complete English sentence into the appropriate gloss"""
     doc = nlp(text)
     time_word: str | None = None
     wh_word: str | None = None
     has_negation = False
-    kept_tokens: list[tuple[str, str]] = []  # (word, dictionary form)
+    kept_tokens: list[tuple[str, str]] = []
 
     for token in doc:
         word = token.text.lower()
@@ -44,7 +41,6 @@ def to_gloss(text: str) -> list[str]:
 
         kept_tokens.append((word, token.lemma_.lower()))
 
-    # a word not in the lexicon tries its dictionary form (ate -> eat) before being fingerspelled
     glossed = [LEXICON.get(w) or LEXICON.get(lemma) or "FS:" + w.upper() for w, lemma in kept_tokens]
 
     result: list[str] = []

@@ -1,8 +1,3 @@
-"""Fill hands the tracker lost while their arm was up, in every indexed motion file, from the arm positions
-signcheck.py cached in clips/pose/ (new clips get this in animate.extract_motion). Then re-run signcheck.
-
-    python gloss_to_asl/tools/fill_hands.py
-"""
 from __future__ import annotations
 
 import sys
@@ -10,13 +5,13 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]  # the repo root
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from gloss_to_asl.animate import fill_lost_hands  # noqa: E402
-from gloss_to_asl.clips import ClipIndex  # noqa: E402
-from gloss_to_asl.motion import HANDS, Motion  # noqa: E402
-from gloss_to_asl.signcheck import pose_path  # noqa: E402
+from gloss_to_asl.animate import fill_lost_hands
+from gloss_to_asl.clips import ClipIndex
+from gloss_to_asl.motion import HANDS, Motion
+from gloss_to_asl.signcheck import pose_path
 
 
 def main() -> None:

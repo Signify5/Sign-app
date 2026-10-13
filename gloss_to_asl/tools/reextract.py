@@ -1,7 +1,3 @@
-"""Re-track every indexed clip from its kept video (after a change to animate.py) and refresh the index.
-
-    python gloss_to_asl/tools/reextract.py [--workers 12]
-"""
 from __future__ import annotations
 
 import argparse
@@ -10,11 +6,11 @@ import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]  # the repo root
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from gloss_to_asl.clips import CLIPS_DIR, INDEX_FILENAME, WLASL_DIR, Clip, ClipIndex  # noqa: E402
-from gloss_to_asl.setup_clips import video_ranges  # noqa: E402
+from gloss_to_asl.clips import CLIPS_DIR, INDEX_FILENAME, WLASL_DIR, Clip, ClipIndex
+from gloss_to_asl.setup_clips import video_ranges
 
 
 def _one(job: tuple) -> tuple:
@@ -32,7 +28,7 @@ def _one(job: tuple) -> tuple:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(description="Re-track every indexed clip from its kept video and refresh the index")
     ap.add_argument("--workers", type=int, default=12)
     args = ap.parse_args()
     clips_dir = ROOT / CLIPS_DIR

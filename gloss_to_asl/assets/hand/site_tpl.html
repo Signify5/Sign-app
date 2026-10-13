@@ -21,7 +21,6 @@ button{cursor:pointer;touch-action:manipulation}
 main{display:flex;flex-direction:column;gap:14px;max-width:1180px;min-height:100svh;margin:0 auto;padding:16px}
 @media (min-width:900px){main{padding:24px 32px}}
 
-/* top: the mic, a typing fallback, replay */
 .top{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 #mic{display:flex;align-items:center;gap:10px;height:52px;padding:0 22px 0 18px;border:0;border-radius:26px;background:var(--accent);color:#fff;font-weight:500;font-size:17px}
 #mic:hover{background:#2850BC}
@@ -35,7 +34,6 @@ main{display:flex;flex-direction:column;gap:14px;max-width:1180px;min-height:100
 .plain:hover{border-color:var(--ink-2)}
 #status{width:100%;margin:0;font-size:14px;color:var(--ink-2);min-height:1.5em}
 
-/* what was heard, and the ASL order underneath */
 .notation{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;align-items:baseline;margin:0}
 .notation dt{font:12px var(--mono);color:var(--mute)}
 .notation dd{margin:0;min-width:0}
@@ -49,7 +47,6 @@ main{display:flex;flex-direction:column;gap:14px;max-width:1180px;min-height:100
 #words span.on{color:var(--ink)}
 #words span.on.moved{color:var(--accent)}
 
-/* the hands */
 #view{position:relative;flex:1;min-height:360px;background:var(--plate);border-radius:6px;overflow:hidden}
 #stage{position:absolute;inset:0}
 #joints{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
@@ -104,7 +101,6 @@ nav.site a:hover{color:var(--ink)}
 
   <p id="credit">Hands: MakeHuman (CC0). Motion: tracked from WLASL sign videos (academic use)<span id="abcCredit" hidden>; letters are authored handshapes</span>. Machine-translated; not checked by a Deaf signer.</p>
 
-  <!-- parts the player script fills in but this page does not show -->
   <div class="parts" aria-hidden="true">
     <button id="play" tabindex="-1"></button><select id="speed" tabindex="-1"><option value="1" selected>1x</option></select>
     <button id="loop" tabindex="-1" aria-pressed="true"></button><div id="lib"></div><div id="presets"></div><div id="abc"></div>
@@ -114,16 +110,14 @@ nav.site a:hover{color:var(--ink)}
 
 /*ENGINE*/
 <script>
-// The page around the player: microphone in, the heard sentence with its ASL order, and the joints view.
 (()=>{
 const $=id=>document.getElementById(id);
 const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
-const CURLY=new RegExp('['+String.fromCharCode(0x2018,0x2019)+'`]','g');  // curly apostrophes
+const CURLY=new RegExp('['+String.fromCharCode(0x2018,0x2019)+'`]','g');
 const norm=s=>s.toUpperCase().replace(CURLY,"'").replace(/[^A-Z0-9' ]+/g,' ').split(/\s+/)
   .map(x=>x.replace(/^'+|'+$/g,'')).filter(Boolean);
 const tidy=s=>{if(s===s.toUpperCase())s=s.toLowerCase();return s.charAt(0).toUpperCase()+s.slice(1);};
 
-// Which English words ASL leaves out, and which change place (outside the longest run that keeps its order)
 function analyse(text,nlp){
   const g=toGloss(text,LIB,nlp),E=norm(text),st=E.map(()=>({drop:false,asl:-1,moved:false}));
   const dropped={};g.dropped.forEach(w=>dropped[w]=(dropped[w]||0)+1);
@@ -151,18 +145,16 @@ document.addEventListener('signed',({detail:{text,nlp}})=>{
   $('eng').innerHTML=english(tidy(text),A);
   [...$('words').children].forEach((sp,i)=>{const s=A.signs[i];if(!s)return;
     sp.textContent=s.spell?'fs-'+s.label:s.label;sp.classList.toggle('moved',s.moved);});
-  if(!ready){ready=true;if($('loop').getAttribute('aria-pressed')==='true')$('loop').click();}  // play each sentence once
+  if(!ready){ready=true;if($('loop').getAttribute('aria-pressed')==='true')$('loop').click();}
 });
 
-// Sentences heard while the hands are still signing an earlier one wait their turn (the welcome phrase does not)
 const queue=[];let spoken=false;
 const busy=()=>{const p=window.player;return !p||!p.tl||spoken&&p.t<p.tl.n-1;};
 const next=()=>{spoken=true;signText(queue.shift());};
 setInterval(()=>{if(ready&&queue.length&&!busy())next();},100);
 const heard=s=>{s=s.trim();if(!s)return;queue.push(s);if(ready&&!busy())next();};
-$('say').addEventListener('submit',()=>{spoken=false;queue.length=0;});  // typing takes over at once
+$('say').addEventListener('submit',()=>{spoken=false;queue.length=0;});
 
-// Microphone: the browser's speech recognition (Chrome and Edge)
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition,mic=$('mic'),status=$('status');
 let rec=null,on=false;
 function setOn(v){on=v;mic.setAttribute('aria-pressed',v);$('micLabel').textContent=v?'Stop listening':'Start listening';
@@ -177,11 +169,10 @@ else{
   rec.onerror=e=>{
     if(e.error==='not-allowed'||e.error==='service-not-allowed'){setOn(false);status.textContent='The microphone is blocked. Allow it from the icon in the address bar, then press Start listening.';}
     else if(e.error==='network'){setOn(false);status.textContent='Speech recognition needs an internet connection. Check it and try again.';}};
-  rec.onend=()=>{if(on)try{rec.start();}catch(_){}};  // the browser stops after a long silence; keep going
+  rec.onend=()=>{if(on)try{rec.start();}catch(_){}};
   mic.onclick=()=>{if(on){setOn(false);rec.stop();}else{setOn(true);try{rec.start();}catch(_){}}};
 }
 
-// Joints view: the 21 hand landmarks (wrist, 4 per finger) projected from the rig's bones onto a 2D canvas
 const EDGES=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[0,17],[17,18],[18,19],[19,20]];
 const cv=$('joints'),ctx=cv.getContext('2d');let mode='hand',P=null;
 function landmarks(P){const H=P.HAND,JI={};H.names.forEach((n,i)=>JI[n]=i);

@@ -7,10 +7,9 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 
 FPS = 30.0
-HANDS = ("Left", "Right")  # MediaPipe labels; "Right" appears on the viewer's left
+HANDS = ("Left", "Right")
 TRANSITION_S = 0.30
 
-# Coordinates are body units: origin at the mid-shoulder point, 1.0 = shoulder width, +y is down.
 
 
 class MotionError(RuntimeError):
@@ -19,11 +18,6 @@ class MotionError(RuntimeError):
 
 @dataclass
 class Motion:
-    """Hand-joint motion of one sign: per hand a (T, 21, 2) array, NaN where the hand is absent.
-
-    `world` optionally holds the same frames as (T, 21, 3) MediaPipe world landmarks (metres, hand-centred,
-    camera axes: x right, y down, z away), which drive the 3D hand.
-    """
 
     hands: Dict[str, np.ndarray]
     fps: float = FPS
@@ -39,7 +33,6 @@ class Motion:
 
     @property
     def quality(self) -> float:
-        """Share of frames with at least one hand tracked."""
         if not self.frames:
             return 0.0
         any_hand = np.zeros(self.frames, bool)
@@ -48,7 +41,6 @@ class Motion:
         return float(any_hand.mean())
 
     def trimmed(self) -> "Motion":
-        """Drop leading/trailing frames with no hand at all."""
         any_hand = np.zeros(self.frames, bool)
         for hand in HANDS:
             any_hand |= self.present(hand)
@@ -77,7 +69,6 @@ class Motion:
 
 
 def _template(mirror: bool) -> np.ndarray:
-    """A relaxed, open hand: wrist at the origin, fingers pointing up (-y)."""
     pts = np.array([
         (0, 0),
         (-.07, -.05), (-.12, -.10), (-.15, -.15), (-.17, -.20),
@@ -102,7 +93,6 @@ def _smoothstep(t: float) -> float:
 
 
 def _retime(arr: np.ndarray, factor: float) -> np.ndarray:
-    """Resample to 1/factor as many frames (factor > 1 = faster). NaN-aware: needs both neighbours."""
     n = len(arr)
     new_n = max(int(round(n / factor)), 1)
     if new_n == n:
@@ -115,7 +105,6 @@ def _retime(arr: np.ndarray, factor: float) -> np.ndarray:
 
 
 def _fill_gaps(arr: np.ndarray) -> Optional[np.ndarray]:
-    """Hold the nearest tracked pose across NaN frames; None if the hand never appears."""
     ok = ~np.isnan(arr[:, 0, 0])
     if not ok.any():
         return None
@@ -128,9 +117,9 @@ def _fill_gaps(arr: np.ndarray) -> Optional[np.ndarray]:
 
 @dataclass
 class Timeline:
-    hands: Dict[str, np.ndarray]  # (N, 21, 2), fully valid
+    hands: Dict[str, np.ndarray]
     fps: float
-    segments: List[Tuple[int, int, str]] = field(default_factory=list)  # (first, last, label)
+    segments: List[Tuple[int, int, str]] = field(default_factory=list)
 
     @property
     def frames(self) -> int:
@@ -153,11 +142,6 @@ def compose(
     transition_s: float = TRANSITION_S,
     fps: float = FPS,
 ) -> Timeline:
-    """Chain signs into one continuous animation.
-
-    Hands glide from wherever the previous sign ended (or from rest) into the next sign's first pose,
-    and return to rest at the end. A hand a sign does not use rests below the frame.
-    """
     if not items:
         raise MotionError("nothing to compose")
     if speed <= 0:

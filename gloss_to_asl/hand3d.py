@@ -1,11 +1,3 @@
-"""3D hand playback: retarget tracked MediaPipe hand landmarks onto the rigged MakeHuman hand.
-
-Each frame becomes, per hand, a wrist position plus one rotation per rig bone; `write_player` bakes a
-playlist into a self-contained three.js page (`python hand3d.py HELLO WORLD -o hello.html`).
-
-Scene frame: metres, origin at mid-shoulder, x toward the viewer's right, y up, z toward the viewer.
-The signer's left hand is solved and drawn as a mirrored right hand ("canonical" space, x flipped).
-"""
 from __future__ import annotations
 
 import argparse
@@ -25,18 +17,16 @@ ASSETS = Path(__file__).parent / "assets" / "hand"
 RIG_PATH = ASSETS / "makehuman_hand.json"
 TEMPLATE_PATH = ASSETS / "player_tpl.html"
 
-BODY_UNIT_M = 0.36  # shoulder width in metres (motion files are in shoulder widths)
-LIFT_Y_M = -0.26  # below this the signer is still raising the hands into the video (or lowering them after)
-HAND_DEPTH_M = 0.22  # hands sit this far in front of the shoulder plane (depth is not tracked)
-MIRROR = {"Left": True, "Right": False}  # MediaPipe "Right" tracks the signer's right hand (right-handed 3D landmarks)
+BODY_UNIT_M = 0.36
+LIFT_Y_M = -0.26
+HAND_DEPTH_M = 0.22
+MIRROR = {"Left": True, "Right": False}
 
-# MediaPipe landmark ids: 0 wrist; thumb 1-4; index 5-8; middle 9-12; ring 13-16; pinky 17-20.
 FINGER_LM = {"index": 5, "middle": 9, "ring": 13, "pinky": 17}
 CHAIN_LM: Dict[str, List[int]] = {f: [0, b, b + 1, b + 2, b + 3] for f, b in FINGER_LM.items()}
 CHAIN_LM["thumb"] = [1, 2, 3, 4]
 
 
-# ---- quaternions as (x, y, z, w), matching three.js ----
 
 def q_mul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     ax, ay, az, aw = a
@@ -56,7 +46,6 @@ def q_rotate(q: np.ndarray, v: np.ndarray) -> np.ndarray:
 
 
 def q_between(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Shortest-arc rotation taking direction a onto direction b."""
     a = a / np.linalg.norm(a)
     b = b / np.linalg.norm(b)
     d = float(a @ b)
@@ -99,7 +88,6 @@ def q_slerp(a: np.ndarray, b: np.ndarray, t: float) -> np.ndarray:
 
 
 def palm_frame(wrist: np.ndarray, index_mcp: np.ndarray, middle_mcp: np.ndarray, pinky_mcp: np.ndarray) -> np.ndarray:
-    """Columns: thumb side (x), fingers (y), palm normal (z) of a right hand."""
     y = middle_mcp - wrist
     y /= np.linalg.norm(y)
     x = index_mcp - pinky_mcp
@@ -108,7 +96,6 @@ def palm_frame(wrist: np.ndarray, index_mcp: np.ndarray, middle_mcp: np.ndarray,
     return np.stack([x, y, np.cross(x, y)], axis=1)
 
 
-# ---- rig ----
 
 @dataclass
 class Rig:
@@ -117,7 +104,7 @@ class Rig:
     parents: List[int] = field(init=False)
     joints: np.ndarray = field(init=False)
     rest_frame: np.ndarray = field(init=False)
-    chains: Dict[str, List[Tuple[int, np.ndarray]]] = field(init=False)  # finger -> [(bone, rest dir)]
+    chains: Dict[str, List[Tuple[int, np.ndarray]]] = field(init=False)
 
     def __post_init__(self) -> None:
         d = self.data
@@ -138,19 +125,17 @@ class Rig:
 
 
 def to_scene(world: np.ndarray) -> np.ndarray:
-    """MediaPipe world axes (x right, y down, z away) -> scene axes (x right, y up, z toward viewer)."""
     return world * np.array([1.0, -1.0, -1.0])
 
 
 def retarget(rig: Rig, lm: np.ndarray) -> np.ndarray:
-    """(21, 3) right-hand landmarks in scene axes -> (20, 4) bone quaternions (bone 0 = wrist, in scene)."""
     frame = palm_frame(lm[0], lm[5], lm[9], lm[17])
     g = frame @ rig.rest_frame.T
     q = np.tile([0.0, 0.0, 0.0, 1.0], (len(rig.names), 1))
     q[0] = q_from_matrix(g)
     for finger, chain in rig.chains.items():
         ids = CHAIN_LM[finger]
-        parent = np.array([0.0, 0, 0, 1])  # global rotation of the parent bone, in the hand's own frame
+        parent = np.array([0.0, 0, 0, 1])
         for k, (bone, rest_dir) in enumerate(chain):
             seg = g.T @ (lm[ids[k + 1]] - lm[ids[k]])
             if np.linalg.norm(seg) < 1e-6:
@@ -162,12 +147,11 @@ def retarget(rig: Rig, lm: np.ndarray) -> np.ndarray:
     return q
 
 
-# ---- per-frame hand poses and the timeline ----
 
 @dataclass
 class Pose:
-    pos: np.ndarray  # (3,) wrist, canonical space
-    quats: np.ndarray  # (20, 4)
+    pos: np.ndarray
+    quats: np.ndarray
 
     def lerp(self, other: "Pose", t: float) -> "Pose":
         return Pose((1 - t) * self.pos + t * other.pos,
@@ -179,28 +163,21 @@ def q_axis(axis: np.ndarray, angle: float) -> np.ndarray:
     return np.array([*(axis * np.sin(angle / 2)), np.cos(angle / 2)])
 
 
-# Relaxed hand: (mcp, pip, dip) flex in degrees, curling a little more toward the pinky,
-# and how far each finger turns in toward the middle finger at the knuckle.
 RELAX_FLEX = {"index": (14, 22, 12), "middle": (20, 30, 15), "ring": (26, 36, 18), "pinky": (32, 40, 20)}
-RELAX_GATHER = {"index": 3, "middle": -3, "ring": -9, "pinky": -11}  # + turns toward the pinky; closes the bind fan
+RELAX_GATHER = {"index": 3, "middle": -3, "ring": -9, "pinky": -11}
 
 
 def rest_pose(rig: Rig) -> Pose:
-    """Hands relaxed low in front of the signer: fingers loosely curled, palm angled down (canonical right hand).
-
-    Local rotations are in the rig's bind frame (as `retarget` writes them), so each joint flexes
-    about the palm frame's thumb-side axis and gathers about the palm normal.
-    """
-    x, y, z = rig.rest_frame.T  # thumb side, fingers, palm normal
+    x, y, z = rig.rest_frame.T
     q = np.tile([0.0, 0.0, 0.0, 1.0], (len(rig.names), 1))
     for finger, flex in RELAX_FLEX.items():
-        bones = [b for b, _ in rig.chains[finger]][1:]  # skip the metacarpal
+        bones = [b for b, _ in rig.chains[finger]][1:]
         for k, (bone, deg) in enumerate(zip(bones, flex)):
             q[bone] = q_axis(x, np.radians(deg))
             if k == 0:
                 q[bone] = q_mul(q_axis(z, np.radians(RELAX_GATHER[finger])), q[bone])
     (cmc, t0), (mcp, t1), (ip, t2) = rig.chains["thumb"]
-    q[cmc] = q_axis(y, np.radians(-22))  # bring the thumb round in front of the palm
+    q[cmc] = q_axis(y, np.radians(-22))
     q[mcp] = q_axis(np.cross(t1, z), np.radians(12))
     q[ip] = q_axis(np.cross(t2, z), np.radians(18))
     fingers = np.array([0.45, -0.25, 0.6])
@@ -214,7 +191,6 @@ def rest_pose(rig: Rig) -> Pose:
 
 
 def _hold_gaps(ok: np.ndarray) -> Optional[np.ndarray]:
-    """Index of the nearest earlier tracked frame (or the first tracked one) for every frame."""
     if not ok.any():
         return None
     idx = np.where(ok, np.arange(len(ok)), -1)
@@ -223,18 +199,15 @@ def _hold_gaps(ok: np.ndarray) -> Optional[np.ndarray]:
     return idx
 
 
-# Share of a curled finger's bend taken by the knuckle, middle and end joints in a real fist. The tracker
-# under-bends the knuckle (about 50 degrees) and folds the end joints instead, which makes fists look stubby.
 FIST_SHARE = np.array([90.0, 85.0, 25.0]) / 200.0
-CURL_FROM, CURL_TO = 90.0, 170.0  # total finger bend (degrees) where the correction starts and is complete
+CURL_FROM, CURL_TO = 90.0, 170.0
 
 
 def natural_curl(rig: Rig, q: np.ndarray) -> np.ndarray:
-    """Redistribute each curled finger's flex toward real fist proportions, keeping the total bend."""
     x = rig.rest_frame[:, 0]
     q = q.copy()
     for finger in ("index", "middle", "ring", "pinky"):
-        bones = [b for b, _ in rig.chains[finger]][1:]  # mcp, pip, dip
+        bones = [b for b, _ in rig.chains[finger]][1:]
         flex = np.array([2 * np.arctan2(q[b, :3] @ x, q[b, 3]) for b in bones])
         total = np.degrees(flex.sum())
         w = np.clip((total - CURL_FROM) / (CURL_TO - CURL_FROM), 0.0, 1.0)
@@ -248,7 +221,6 @@ def natural_curl(rig: Rig, q: np.ndarray) -> np.ndarray:
 
 
 def hand_poses(rig: Rig, motion: Motion, hand: str) -> Optional[List[Pose]]:
-    """Canonical poses for every frame of one hand, or None if the sign never uses it."""
     flat, world = motion.hands.get(hand), motion.world.get(hand)
     if flat is None or world is None:
         return None
@@ -269,11 +241,6 @@ def hand_poses(rig: Rig, motion: Motion, hand: str) -> Optional[List[Pose]]:
 
 
 def smooth_track(poses: List[Pose], sigma: float = 1.2) -> List[Pose]:
-    """Gaussian filter over frames (sigma in frames) to take out tracker jitter.
-
-    Positions are averaged directly; quaternions are flipped onto the centre frame's hemisphere,
-    averaged and renormalised, which is accurate for the small angles between neighbouring frames.
-    """
     if len(poses) < 3 or sigma <= 0:
         return poses
     r = int(np.ceil(3 * sigma))
@@ -292,35 +259,31 @@ def smooth_track(poses: List[Pose], sigma: float = 1.2) -> List[Pose]:
 
 
 def min_jerk(t: float) -> float:
-    """Minimum-jerk profile: zero velocity and acceleration at both ends, like a reaching arm."""
     return t * t * t * (10 - 15 * t + 6 * t * t)
 
 
 def glide_frames(a: Pose, b: Pose, base: int) -> int:
-    """Transition length grows with how far the wrist travels (0.25 m is a typical move)."""
     d = float(np.linalg.norm(b.pos - a.pos))
     return max(int(round(base * np.clip(0.5 + 2.0 * d, 0.6, 1.6))), 2)
 
 
 @dataclass
 class Timeline3D:
-    frames: np.ndarray  # (N, 2, 3 + 4 * bones): per HANDS entry, wrist position then bone quaternions
+    frames: np.ndarray
     fps: float
     segments: List[Tuple[int, int, str]]
 
 
 def active_span(tracks: Dict[str, Optional[List[Pose]]]) -> Tuple[int, int]:
-    """First and last frame where some hand is up in signing space; the lift in and drop out are left to the glide."""
     ys = np.max([[p.pos[1] for p in t] for t in tracks.values() if t is not None], axis=0)
     up = np.flatnonzero(ys > LIFT_Y_M)
     return (int(up[0]), int(up[-1])) if len(up) else (0, len(ys) - 1)
 
 
-Tracks = Dict[str, Optional[List[Pose]]]  # per HANDS entry, None for a hand the sign does not use
+Tracks = Dict[str, Optional[List[Pose]]]
 
 
 def sign_track(rig: Rig, motion: Motion, speed: float = 1.0, fps: float = FPS) -> Optional[Tracks]:
-    """One clip resampled to `fps` (sped up by `speed`) and cut to the part where the hands are up."""
     m = motion.trimmed()
     step = m.fps / fps * speed
     n = max(int(round(m.frames / step)), 1)
@@ -337,10 +300,6 @@ def sign_track(rig: Rig, motion: Motion, speed: float = 1.0, fps: float = FPS) -
 
 def compose3d(rig: Rig, items: Sequence[Tuple[Tracks, str]], gap_s: float = 0.0, speed: float = 1.0,
               transition_s: float = TRANSITION_S, fps: float = FPS) -> Timeline3D:
-    """Chain signs: each hand glides (slerp) from where it was into the next sign, and back to rest at the end.
-
-    Items are (tracks, label) from `sign_track` or `fingerspell.spell_track`; a hand a sign leaves out rests.
-    """
     rest = rest_pose(rig)
     n_trans = max(int(round(transition_s * fps / speed)), 2)
     out: List[List[Pose]] = []
@@ -371,7 +330,6 @@ def compose3d(rig: Rig, items: Sequence[Tuple[Tracks, str]], gap_s: float = 0.0,
     return Timeline3D(arr, fps, segments)
 
 
-# ---- player page ----
 
 def _blob(arrays: List[Tuple[str, np.ndarray]]) -> Tuple[List[list], str]:
     raw, layout, off = b"", [], 0
@@ -399,7 +357,7 @@ def pack_rig(rig: Rig) -> dict:
 
 def pack_timeline(tl: Timeline3D) -> dict:
     f = tl.frames.copy()
-    f[:, :, :3] *= 1e4  # 0.1 mm
+    f[:, :, :3] *= 1e4
     f[:, :, 3:] *= 32767
     layout, blob = _blob([("frames", np.round(f).astype("<i2"))])
     return {"n": len(f), "stride": f.shape[2], "fps": tl.fps, "segments": tl.segments,
@@ -436,7 +394,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     playlist = build_playlist(args.glosses, ClipIndex.load(), on_status=lambda e: print(f"[{e.state}] {e.detail}"),
                               authored_letters=True)
     items = []
-    for item in playlist.items:  # words without a clip are spelled with the authored alphabet, not letter clips
+    for item in playlist.items:
         tracks = (spell_track(rig, item.gloss, speed=args.speed) if item.kind == FINGERSPELL
                   else sign_track(rig, Motion.load(item.clips[0].path), speed=args.speed))
         items.append((tracks, item.gloss))

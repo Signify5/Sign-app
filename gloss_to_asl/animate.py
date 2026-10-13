@@ -21,13 +21,12 @@ HAND_MODEL_PATH = Path("models") / "hand_landmarker.task"
 POSE_MODEL_PATH = Path("models") / "pose_landmarker_lite.task"
 
 MAX_GAP_FRAMES = 8
-SMOOTHING = 0.55  # weight on the new landmark; lower = smoother
+SMOOTHING = 0.55
 MIN_SHOULDER_PX = 20.0
 POSE_SAMPLES = 8
-# Pose landmark of each arm's wrist, by the hand label used in motion files ("Right" is the signer's right).
 POSE_WRIST = {"Left": 15, "Right": 16}
-REST_Y = 1.15     # body units: a wrist below this is resting
-ARM_RAISE = 0.3   # wrist rise above where the arm rests in the clip that counts as raised
+REST_Y = 1.15
+ARM_RAISE = 0.3
 
 
 class AnimateError(RuntimeError):
@@ -77,7 +76,6 @@ def _mp_image(frame_bgr: np.ndarray):
 
 
 def body_frame(frames: List[np.ndarray]) -> Tuple[np.ndarray, float]:
-    """(mid-shoulder pixel position, shoulder width in px), the median over sampled frames."""
     from mediapipe.tasks import python as mp_python
     from mediapipe.tasks.python import vision
 
@@ -106,8 +104,6 @@ def body_frame(frames: List[np.ndarray]) -> Tuple[np.ndarray, float]:
 
 
 def track_hands(frames: List[np.ndarray], fps: float) -> Tuple[List[Dict[str, np.ndarray]], np.ndarray]:
-    """Per frame, {handedness: 21x5 landmarks}: pixel x, y, then MediaPipe 3D world x, y, z (metres); and the
-    pose tracker's arm wrists, (T, 2, 2) pixels in HANDS order, NaN where no body is found."""
     from mediapipe.tasks import python as mp_python
     from mediapipe.tasks.python import vision
 
@@ -125,7 +121,7 @@ def track_hands(frames: List[np.ndarray], fps: float) -> Tuple[List[Dict[str, np
         running_mode=vision.RunningMode.VIDEO,
     ))
     tracks: List[Dict[str, np.ndarray]] = []
-    last: Dict[str, Tuple[int, np.ndarray]] = {}  # label -> (frame, wrist px) of its latest detection
+    last: Dict[str, Tuple[int, np.ndarray]] = {}
     arms = np.full((len(frames), len(HANDS), 2), np.nan, np.float32)
     try:
         for n, frame in enumerate(frames):
@@ -152,15 +148,9 @@ def track_hands(frames: List[np.ndarray], fps: float) -> Tuple[List[Dict[str, np
 
 def assign_hands(dets: List[Tuple[np.ndarray, str]], arm: Dict[str, np.ndarray],
                  last: Dict[str, np.ndarray], width: float) -> Dict[str, np.ndarray]:
-    """Which detected hand is which: the one nearest each arm's wrist (from the pose), else nearest where
-    that hand just was, else the hand tracker's own guess. Two detections never share a label.
-
-    The tracker's handedness label alone flips between frames and can give both hands one label, which
-    dropped a hand or swapped them mid-sign.
-    """
     def cost(pts: np.ndarray, label: str) -> float:
         ref = arm.get(label, last.get(label))
-        if ref is None:  # nothing to go on but the tracker's guess, which loses to any nearby evidence
+        if ref is None:
             return width / 2 if label == dets_label[id(pts)] else width
         return float(np.linalg.norm(pts[0, :2] - ref))
 
@@ -177,7 +167,6 @@ def assign_hands(dets: List[Tuple[np.ndarray, str]], arm: Dict[str, np.ndarray],
 
 
 def clean_tracks(tracks: List[Dict[str, np.ndarray]]) -> List[Dict[str, np.ndarray]]:
-    """Interpolate short detection gaps per hand, then low-pass the motion."""
     n = len(tracks)
     out: List[Dict[str, np.ndarray]] = [dict() for _ in range(n)]
     for label in {k for t in tracks for k in t}:
@@ -199,7 +188,6 @@ def clean_tracks(tracks: List[Dict[str, np.ndarray]]) -> List[Dict[str, np.ndarr
 
 
 def _resample(arr: np.ndarray, src_fps: float, dst_fps: float) -> np.ndarray:
-    """Resample (T, 21, k) to dst_fps; a frame is NaN unless both neighbours are tracked."""
     n = len(arr)
     new_n = max(int(round(n * dst_fps / src_fps)), 1)
     pos = np.linspace(0, n - 1, new_n)
@@ -210,9 +198,6 @@ def _resample(arr: np.ndarray, src_fps: float, dst_fps: float) -> np.ndarray:
 
 
 def arm_track(in_path: Union[Path, str], start_ms: int = 0, end_ms: Optional[int] = None) -> np.ndarray:
-    """(T, 2, 2) wrist positions of the two arms from the pose tracker (in HANDS order), in body units at FPS,
-    NaN where no body is found. Frame for frame with extract_motion's hands, so a hand the hand tracker lost
-    while its arm is up can be told from a hand resting out of view."""
     from mediapipe.tasks import python as mp_python
     from mediapipe.tasks.python import vision
 
@@ -238,8 +223,6 @@ def arm_track(in_path: Union[Path, str], start_ms: int = 0, end_ms: Optional[int
 
 
 def arm_raised(arms: np.ndarray) -> np.ndarray:
-    """(T, 2) bool: each arm's wrist well above where that arm rests in the clip (some signers rest their hands
-    at the waist, so a fixed height is not enough). `arms` is (T, 2, 2) in body units; no body is not raised."""
     out = np.zeros(arms.shape[:2], bool)
     for k in range(arms.shape[1]):
         y = arms[:, k, 1]
@@ -250,10 +233,6 @@ def arm_raised(arms: np.ndarray) -> np.ndarray:
 
 
 def fill_lost_hands(hands: Dict[str, np.ndarray], world: Dict[str, np.ndarray], arms: np.ndarray) -> int:
-    """Fill frames where a hand's arm is raised but the hand tracker lost the hand (usually while the hands
-    touch or cross, as in SCHOOL or STOP), in place. The hand keeps the shape it had either side of the gap
-    (blended across it) and its wrist follows the arm's wrist from the pose tracker. Returns the frames filled.
-    A hand never seen in the clip is left out."""
     filled = 0
     raised = arm_raised(arms)
     for k, label in enumerate(HANDS):
@@ -292,10 +271,6 @@ def extract_motion(
     start_ms: int = 0,
     end_ms: Optional[int] = None,
 ) -> Motion:
-    """Track both hands in a sign video as body-normalized motion data (no video is kept).
-
-    Raises AnimateError if there is no body to normalize against or no hand is ever found.
-    """
     frames, fps = _read_frames(Path(in_path), start_ms, end_ms)
     origin, unit = body_frame(frames)
     raw, arms_px = track_hands(frames, fps)
