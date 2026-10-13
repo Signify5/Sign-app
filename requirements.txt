@@ -1,5 +1,5 @@
-# Everything Signify needs, all three steps. Install inside a venv (see README.md):
-#   pip install -r requirements.txt
+# Everything Signify needs, all three steps. `python setup.py` installs it into venv/ for you;
+#   by hand: pip install -r requirements.txt
 
 # Step 1, speech to text: the desktop window, the microphone, voice detection
 PySide6>=6.6

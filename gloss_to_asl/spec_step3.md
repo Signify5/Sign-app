@@ -21,7 +21,7 @@ Given an ordered list of ASL glosses, find a matching video clip for each and pl
 
 ### Acquisition
 
-- `setup_clips.py` (mirrors `setup_models.py`): reads the WLASL metadata JSON, downloads every clip whose URL is still alive for the chosen vocabulary, records dead/failed links in a report, and writes a local index.
+- `setup_clips.py` (mirrors the old `setup_models.py`, now part of `setup.py`): reads the WLASL metadata JSON, downloads every clip whose URL is still alive for the chosen vocabulary, records dead/failed links in a report, and writes a local index.
 - Clips live in a gitignored folder, e.g. `clips/`. The index maps `gloss -> [clip entries]`, each with signer id (where known), resolution, fps, duration, and path.
 - Must be re-runnable (skips files already downloaded and verified).
 - Fingerspelling letters are fetched the same way from ASL Signbank.

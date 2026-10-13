@@ -74,7 +74,7 @@ class VoskAdapter(EngineAdapter):
         path = self._model_dir if os.path.isdir(self._model_dir) else model_size
         if not os.path.isdir(path):
             raise EngineLoadError(
-                f"vosk model not found at '{path}' -- run setup_models.py first"
+                f"vosk model not found at '{path}' -- run python setup.py first"
             )
         try:
             vosk.SetLogLevel(-1)
