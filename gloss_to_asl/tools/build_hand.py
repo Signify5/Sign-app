@@ -1,18 +1,9 @@
-"""MakeHuman base mesh (CC0) right hand -> gloss_to_asl/assets/hand/makehuman_hand.json, the rig the 3D player skins.
-
-Run from the repo root: python gloss_to_asl/tools/build_hand.py
-
-Output frame: metres, wrist at origin, fingers along +y, palm facing +z, thumb toward +x (right hand).
-Unified joints (20): 0 wrist; index/middle/ring/pinky each [mc, mcp, pip, dip]; thumb [cmc, mcp, ip].
-"""
 import json
 from pathlib import Path
 
 import numpy as np
 
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
-# MakeHuman's base.obj, default.mhskel and default_weights.mhw (CC0, from MakeHuman's data files,
-# github.com/makehumancommunity): only needed here, so they are kept out of the repo
 MH = ASSETS / "makehuman"
 OUT = ASSETS / "hand" / "makehuman_hand.json"
 
@@ -28,7 +19,7 @@ def frame(wrist, mid_mcp, thumb_ref):
     y = mid_mcp - wrist; y /= np.linalg.norm(y)
     x = thumb_ref - wrist; x -= y * x.dot(y); x /= np.linalg.norm(x)
     z = np.cross(x, y)
-    return np.stack([x, y, z])  # rows: new axes in old coords
+    return np.stack([x, y, z])
 
 
 def top4(W):
@@ -39,7 +30,6 @@ def top4(W):
 
 
 def mesh_tips(V, W, joints):
-    """Fingertip = furthest point along the distal segment's principal axis (vertices owned by the last joint)."""
     tips = {}
     for f, last in [("thumb", "thumb-ip"), ("index", "index-dip"), ("middle", "middle-dip"),
                     ("ring", "ring-dip"), ("pinky", "pinky-dip")]:
@@ -90,7 +80,6 @@ def build_makehuman(obj, skel, weights):
     head = lambda b: jpos(s["bones"][b]["head"])
     tail = lambda b: jpos(s["bones"][b]["tail"])
 
-    # MakeHuman: finger1 = thumb ... finger5 = pinky; metacarpal1..4 = index..pinky.
     mh = {}
     for i, f in enumerate(FINGERS):
         mh[f"{f}-mc"] = f"metacarpal{i+1}.R"
@@ -104,7 +93,6 @@ def build_makehuman(obj, skel, weights):
     tips_old = {f: tail(f"finger{i+2}-3.R") for i, f in enumerate(FINGERS)}
     tips_old["thumb"] = tail("finger1-3.R")
 
-    # Vertex weights for hand bones; forearm bones fold into the wrist joint.
     n = len(Vall)
     W = np.zeros((n, len(NAMES)))
     for n_, b in mh.items():
@@ -117,7 +105,6 @@ def build_makehuman(obj, skel, weights):
 
     R0 = frame(joints_old["wrist"], joints_old["middle-mcp"], joints_old["thumb-mcp"])
     wr = joints_old["wrist"]
-    # Keep body faces whose vertices are hand/wrist-weighted, cut ~9 cm up the forearm.
     Vn = (Vall - wr) @ R0.T
     hand_len = np.linalg.norm((tips_old["middle"] - wr) @ R0.T)
     scale = 0.19 / hand_len

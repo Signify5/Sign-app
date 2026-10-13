@@ -1,9 +1,3 @@
-"""Every sign, the alphabet and a few phrases in one 3D player page.
-
-`python -m gloss_to_asl.library` bakes the best clip of every gloss in the index (tracked motion, cut to the part
-where the hands are up, at LIB_FPS) and the authored A-Z handshapes into one self-contained page.
-The page chains signs in the browser, so any typed sentence plays; words without a sign are spelled.
-"""
 from __future__ import annotations
 
 import argparse
@@ -21,17 +15,15 @@ from gloss_to_asl.fingerspell import ALPHABET, CHANGE_S, DOUBLE_SHIFT_M, HOLD_S,
 from gloss_to_asl.hand3d import HANDS, MIRROR, TEMPLATE_PATH, Pose, Rig, Tracks, _blob, pack_rig, rest_pose, sign_track
 from gloss_to_asl.motion import FPS, TRANSITION_S, Motion, MotionError
 
-LIB_FPS = 15.0  # stored rate; the page upsamples to FPS when it chains signs
+LIB_FPS = 15.0
 GAP_S = 0.1
-POS_SCALE = 1e4  # 0.1 mm
-FAILED_FAULTS = 10  # signcheck.py scores a serious problem 10, a warning 1
-SITE_TEMPLATE = Path(__file__).resolve().parent / "assets" / "hand" / "site_tpl.html"  # the website around the player
-GLOSS_JS = Path(__file__).resolve().parent / "assets" / "hand" / "gloss.js"  # English -> ASL sign order
-NOUNS_PATH = GLOSS_JS.with_name("nouns.txt")  # glosses that are mainly nouns (tools/build_nouns.py)
-# Every packed sign, kept in git so the pages build without the WLASL videos or clips/ (motion only, no video)
+POS_SCALE = 1e4
+FAILED_FAULTS = 10
+SITE_TEMPLATE = Path(__file__).resolve().parent / "assets" / "hand" / "site_tpl.html"
+GLOSS_JS = Path(__file__).resolve().parent / "assets" / "hand" / "gloss.js"
+NOUNS_PATH = GLOSS_JS.with_name("nouns.txt")
 PACK_PATH = Path(__file__).resolve().parent / "assets" / "signs.json.gz"
 
-# Shown as one-click examples; every word must be in the vocabulary unless listed in SPELLED.
 PRESETS = [
     "HELLO NICE MEET YOU",
     "THANK YOU",
@@ -50,8 +42,6 @@ SPELLED = {"VEDANT"}
 
 
 def agent_track(rig: Rig, person: Tracks) -> Tracks:
-    """The agent ending (TEACH + AGENT = TEACHER): the PERSON sign's movement, both hands down the sides, with
-    flat hands instead of P hands. Fingers straight and together as in B, thumb relaxed beside the palm."""
     q = letter_pose(rig, "B").quats.copy()
     thumb = [b for b, _ in rig.chains["thumb"]]
     q[thumb] = rest_pose(rig).quats[thumb]
@@ -60,9 +50,6 @@ def agent_track(rig: Rig, person: Tracks) -> Tracks:
 
 
 def vocabulary(index: ClipIndex, keep_failed: bool = False) -> List[str]:
-    """Glosses that get a sign. One-letter glosses are left to the authored alphabet, except the pronoun I.
-    A gloss whose best signing fails a serious sign check (signcheck.py: wrong number of hands, wrong place)
-    is left out, so the word is spelled instead of signed wrongly."""
     return [g for g in index.glosses if (len(g) > 1 or g == "I")
             and (keep_failed or index.best(g).faults < FAILED_FAULTS)]
 
@@ -76,23 +63,16 @@ def _canon(q: np.ndarray) -> np.ndarray:
 
 
 def _delta(a: np.ndarray) -> np.ndarray:
-    """Frame-to-frame differences (wrapping in the array's integer type), which compress far better."""
     return np.diff(a, axis=0, prepend=np.zeros((1, a.shape[1]), a.dtype)).astype(a.dtype)
 
 
 def pack_library(rig: Rig, index: ClipIndex, glosses: Sequence[str],
                  progress: Optional[Callable[[int, int], None]] = None) -> dict:
-    """Signs as quantised frames plus the letters, rest pose and timing the page needs to chain them.
-
-    A sign's hands are stored one after the other, each as n rows of differences from the previous row.
-    Per hand-frame: `head` int16 (wrist position in 0.1 mm, wrist quaternion * 32767) and `bones` int8
-    (x, y, z of each finger-bone quaternion * 127 with w >= 0; w is rebuilt in the page).
-    """
     head: List[np.ndarray] = []
     bones: List[np.ndarray] = []
     meta: Dict[str, List[int]] = {}
     k = 0
-    made: Dict[str, Tracks] = {}  # PERSON, which AGENT is built from
+    made: Dict[str, Tracks] = {}
 
     def track(gloss: str) -> Optional[Tracks]:
         if gloss == "AGENT":
@@ -144,7 +124,7 @@ def pack_library(rig: Rig, index: ClipIndex, glosses: Sequence[str],
 def write_library(lib: dict, out: Path, rig: Rig, title: str = "ASL signs and alphabet",
                   template: Path = TEMPLATE_PATH, nav: str = "") -> Path:
     html = template.read_text(encoding="utf-8").replace("<!--NAV-->", nav)
-    if "/*ENGINE*/" in html:  # a page of its own around the player's scripts (the website)
+    if "/*ENGINE*/" in html:
         player = TEMPLATE_PATH.read_text(encoding="utf-8")
         html = html.replace("/*ENGINE*/", player[player.index("<script src="):player.rindex("</body>")])
     html = (html.replace("/*TITLE*/", title)
@@ -170,7 +150,6 @@ def load_pack(path: Path = PACK_PATH) -> dict:
 
 
 def write_pages(lib: dict, rig: Rig, out: Path, web: Optional[Path] = None) -> List[Path]:
-    """The desktop app's page, and with `web` the website's two pages."""
     pages = [write_library(lib, out, rig)]
     if web:
         pages += [write_library(lib, web / "index.html", rig, title="Signify", template=SITE_TEMPLATE),
@@ -180,7 +159,6 @@ def write_pages(lib: dict, rig: Rig, out: Path, web: Optional[Path] = None) -> L
 
 
 def check_presets(glosses: Sequence[str]) -> None:
-    """Fail the build if an example phrase would fall back to spelling a word that should be signed."""
     vocab = set(glosses)
     for phrase in PRESETS:
         words = phrase.split()

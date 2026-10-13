@@ -5,8 +5,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Union
 
-CLIPS_DIR = Path("clips")  # what the app builds: motion, index, checks
-DATASETS_DIR = Path("datasets")  # what was downloaded: WLASL videos, ASL-LEX (licences: not redistributable)
+CLIPS_DIR = Path("clips")
+DATASETS_DIR = Path("datasets")
 WLASL_DIR = DATASETS_DIR / "wlasl"
 INDEX_FILENAME = "index.json"
 INDEX_VERSION = 1
@@ -22,8 +22,8 @@ class Clip:
     path: str
     clip_id: str
     signer_id: Optional[int] = None
-    quality: float = 0.0  # share of frames with a tracked hand; path is a motion .npz
-    faults: int = 0  # failed sign-form checks, 10 per serious one (signcheck.py --apply); fewer ranks first
+    quality: float = 0.0
+    faults: int = 0
 
 
 def normalize_gloss(gloss: str) -> str:
@@ -31,7 +31,6 @@ def normalize_gloss(gloss: str) -> str:
 
 
 class ClipIndex:
-    """gloss -> clips lookup. Qt-free; paths are absolute once loaded."""
 
     def __init__(self, clips: Iterable[Clip], letters: Optional[Dict[str, Clip]] = None) -> None:
         self._by_gloss: Dict[str, List[Clip]] = {}
@@ -57,7 +56,6 @@ class ClipIndex:
         return sorted(self._by_gloss)
 
     def lookup(self, gloss: str) -> List[Clip]:
-        """All clips for a gloss, best first (deterministic)."""
         return list(self._by_gloss.get(normalize_gloss(gloss), ()))
 
     def best(self, gloss: str) -> Optional[Clip]:
@@ -65,7 +63,6 @@ class ClipIndex:
         return found[0] if found else None
 
     def letter(self, char: str) -> Optional[Clip]:
-        """Fingerspelling clip: dedicated letter clips first, else a one-letter WLASL gloss."""
         key = char.upper()
         return self._letters.get(key) or self.best(key)
 
@@ -100,7 +97,6 @@ class ClipIndex:
         clips: Iterable[Clip],
         letters: Optional[Dict[str, Clip]] = None,
     ) -> None:
-        """Write an index; clip paths must live under the index's directory (stored relative)."""
         path = Path(path)
         base = path.parent.resolve()
 

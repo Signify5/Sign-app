@@ -1,10 +1,3 @@
-"""The 3D hands inside the main window: each spoken sentence is signed on the library page.
-
-The page is exports/library.html, built on first run from the signs kept in git (or by
-`python -m gloss_to_asl.library`). It loads three.js from a CDN, so the
-hands need an internet connection. spaCy (step 2, translate.py) reads each sentence for the page's sign
-rules (gloss.js); without spaCy installed the page's own rules still sign it.
-"""
 from __future__ import annotations
 
 import json
@@ -21,12 +14,11 @@ LIBRARY_PAGE = Path(__file__).resolve().parent / "exports" / "library.html"
 try:
     from PySide6.QtWebEngineCore import QWebEngineSettings
     from PySide6.QtWebEngineWidgets import QWebEngineView
-except ImportError:  # PySide6 built without Qt WebEngine
+except ImportError:
     QWebEngineView = None
 
 
 def _build_page(page: Path) -> None:
-    """Write the library page from gloss_to_asl/assets/signs.json.gz (a second or two)."""
     from gloss_to_asl.hand3d import Rig
     from gloss_to_asl.library import PACK_PATH, load_pack, write_library
     if PACK_PATH.exists():
@@ -60,13 +52,12 @@ class SignPanel(QWidget):
         self._view.loadFinished.connect(self._on_loaded)
         self._view.load(QUrl.fromLocalFile(str(page)))
         layout.addWidget(self._view)
-        # Load spaCy's model now rather than on the first sentence, so that one does not stall the window.
         threading.Thread(target=translate.try_analyze, args=("hello",), daemon=True).start()
 
     def _on_loaded(self, ok: bool) -> None:
         self._ready = ok
         if ok and self._pending:
-            self.sign(self._pending[-1])  # only the latest sentence; older ones are stale by now
+            self.sign(self._pending[-1])
         self._pending.clear()
 
     def sign(self, text: str) -> None:

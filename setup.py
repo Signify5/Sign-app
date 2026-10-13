@@ -1,13 +1,3 @@
-"""One-step setup: clone, cd in, then `python setup.py`. Safe to run again; finished steps are skipped.
-
-1. makes a virtual environment in venv/
-2. installs requirements.txt into it
-3. downloads the speech models (vosk, silero voice detection) into models/
-4. builds the sign pages from gloss_to_asl/assets/signs.json.gz (exports/library.html, web/)
-5. starts the app (leave out with --no-run)
-
-`python setup.py --rebuild-signs` instead downloads the WLASL videos and tracks every sign again (hours, ~3 GB).
-"""
 from __future__ import annotations
 
 import argparse
@@ -39,7 +29,6 @@ def in_venv() -> bool:
     return Path(sys.prefix).resolve() == VENV.resolve()
 
 
-# -- outside the venv: make it, fill it, then carry on inside it --------------------------------------------------
 
 def bootstrap(argv: list) -> None:
     if sys.version_info < (3, 11):
@@ -48,8 +37,6 @@ def bootstrap(argv: list) -> None:
         step("Making the virtual environment (venv/)")
         venv.EnvBuilder(with_pip=True).create(VENV)
     step("Installing the packages (the first time takes a few minutes)")
-    # New pip trusts the computer's own certificates, which matters where an antivirus or proxy inspects HTTPS
-    # (e.g. Norton, Zscaler). The pip a venv starts with may not yet, so it upgrades itself with that turned on.
     upgrade = [VENV_PYTHON, "-m", "pip", "install", "--upgrade", "--quiet", "pip"]
     if subprocess.run([str(a) for a in upgrade + ["--use-feature=truststore"]], cwd=ROOT).returncode:
         run(*upgrade)
@@ -57,7 +44,6 @@ def bootstrap(argv: list) -> None:
     sys.exit(subprocess.run([str(VENV_PYTHON), __file__, *argv], cwd=ROOT).returncode)
 
 
-# -- inside the venv ----------------------------------------------------------------------------------------------
 
 def download(url: str, dest: Path) -> None:
     import requests
@@ -88,7 +74,7 @@ def setup_speech_models() -> None:
         zip_path.unlink()
         print(f"vosk: OK -> {dest.relative_to(ROOT)}")
     from silero_vad import load_silero_vad
-    load_silero_vad()  # checks the model that ships inside the package
+    load_silero_vad()
     print("silero voice detection: OK")
 
 
@@ -103,7 +89,7 @@ def rebuild_signs() -> None:
         "--insecure-host", "aslsignbank.haskins.yale.edu")
     step("Checking the signs against ASL-LEX")
     run(sys.executable, "-m", "gloss_to_asl.signcheck", "--apply")
-    build_pages()  # with clips/ present this also writes a new gloss_to_asl/assets/signs.json.gz
+    build_pages()
 
 
 def main() -> None:

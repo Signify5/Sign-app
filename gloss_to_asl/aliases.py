@@ -1,32 +1,19 @@
-"""English words that play signs the library already has.
-
-Three tables, checked against the vocabulary when the library page is built:
-- SAME_SIGN: groups of words ASL signs the same way; a missing word plays the first member that has a sign.
-- ALIASES: a word or contraction to one or more glosses (irregular verbs and plurals, contractions,
-  compounds such as PARENTS = MOTHER FATHER and person nouns such as DRIVER = DRIVE AGENT).
-- DROP: English words ASL leaves out when they have no sign of their own.
-Every sign and alias also gets its regular forms (-s, -ing, -ed, -ly) from `inflections`; the page
-strips a possessive 's itself.
-"""
 from __future__ import annotations
 
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 SAME_SIGN: List[Tuple[str, ...]] = [
-    # greetings and answers
     ("HELLO", "HI", "HEY", "HOWDY"),
     ("YES", "YEAH", "YEP", "YUP"),
     ("NO", "NOPE", "NAH"),
     ("OK", "OKAY", "ALRIGHT"),
     ("BYE", "GOODBYE"),
-    # family
     ("MOM", "MOMMY", "MUM", "MA"),
     ("DAD", "DADDY", "PAPA", "PA"),
     ("GRANDMA", "GRANDMOTHER", "GRANNY", "NANA"),
     ("GRANDPA", "GRANDFATHER", "GRANDDAD"),
     ("KID", "CHILD"),
     ("BABY", "INFANT"),
-    # pronouns (pointing signs)
     ("SHE", "HE", "HIM", "IT"),
     ("HIS", "HER", "ITS", "HERS"),
     ("WE", "US"),
@@ -34,7 +21,6 @@ SAME_SIGN: List[Tuple[str, ...]] = [
     ("THEIR", "THEIRS"),
     ("MY", "MINE"),
     ("YOUR", "YOURS"),
-    # people
     ("MAN", "GUY"),
     ("WOMAN", "LADY"),
     ("DOCTOR", "PHYSICIAN"),
@@ -44,7 +30,6 @@ SAME_SIGN: List[Tuple[str, ...]] = [
     ("FRIEND", "BUDDY", "PAL"),
     ("STUDENT", "LEARNER", "PUPIL"),
     ("WRITER", "AUTHOR"),
-    # things and places
     ("AIRPLANE", "PLANE", "AEROPLANE"),
     ("CAR", "AUTO", "AUTOMOBILE"),
     ("BICYCLE", "BIKE"),
@@ -59,7 +44,6 @@ SAME_SIGN: List[Tuple[str, ...]] = [
     ("COUCH", "SOFA"),
     ("TRASH", "GARBAGE", "RUBBISH"),
     ("MONEY", "CASH"),
-    # verbs
     ("START", "BEGIN"),
     ("BUY", "PURCHASE"),
     ("HELP", "ASSIST"),
@@ -68,8 +52,7 @@ SAME_SIGN: List[Tuple[str, ...]] = [
     ("YELL", "SHOUT"),
     ("UNDERSTAND", "COMPREHEND"),
     ("FINISH", "DONE"),
-    ("FAVORITE", "FAVOURITE", "PREFER"),  # the same sign; a spelling variant plays its own spelling first
-    # describing words
+    ("FAVORITE", "FAVOURITE", "PREFER"),
     ("HAPPY", "GLAD"),
     ("BIG", "LARGE"),
     ("SMART", "INTELLIGENT", "CLEVER"),
@@ -84,7 +67,6 @@ SAME_SIGN: List[Tuple[str, ...]] = [
     ("THEATER", "THEATRE"),
 ]
 
-# Irregular past forms; the page marks them as past tense (WENT -> GO, with FINISH or a time sign).
 PAST: Dict[str, Tuple[str, ...]] = {
     "WENT": ("GO",), "GONE": ("GO",),
     "HAD": ("HAVE",),
@@ -114,8 +96,6 @@ PAST: Dict[str, Tuple[str, ...]] = {
     "BLEW": ("BLOW",), "DUG": ("DIG",), "FROZE": ("FREEZE",), "FROZEN": ("FREEZE",),
 }
 
-# Irregular plurals; the page treats them like CATS (MEN -> MAN, repeated unless a number or MANY says how many).
-# HAS and PERSONS are plain aliases below: HAS is not past, PEOPLE is already plural.
 PLURAL: Dict[str, Tuple[str, ...]] = {
     "CHILDREN": ("CHILD",), "MEN": ("MAN",), "WOMEN": ("WOMAN",), "FEET": ("FOOT",),
     "TEETH": ("TOOTH",), "MICE": ("MOUSE",), "GEESE": ("GOOSE",),
@@ -127,7 +107,6 @@ ALIASES: Dict[str, Tuple[str, ...]] = {
     "GOODNIGHT": ("GOOD", "NIGHT"),
     "GOOD NIGHT": ("GOOD", "NIGHT"),
     "FRIES": ("FRENCH FRIES",),
-    # contractions
     "I'M": ("I",), "YOU'RE": ("YOU",), "WE'RE": ("WE",), "THEY'RE": ("THEY",),
     "HE'S": ("HE",), "SHE'S": ("SHE",), "IT'S": ("IT",), "THAT'S": ("THAT",),
     "WHAT'S": ("WHAT",), "WHERE'S": ("WHERE",), "WHO'S": ("WHO",), "HOW'S": ("HOW",),
@@ -146,7 +125,6 @@ ALIASES: Dict[str, Tuple[str, ...]] = {
     "SHOULDN'T": ("SHOULD", "NOT"), "MUSTN'T": ("MUST", "NOT"),
     "DONT": ("NOT",), "DOESNT": ("NOT",), "DIDNT": ("NOT",), "ISNT": ("NOT",), "WONT": ("REFUSE",),
     "IM": ("I",),
-    # compounds
     "HUSBAND": ("MAN", "MARRY"),
     "WIFE": ("WOMAN", "MARRY"),
     "SON": ("BOY", "BABY"),
@@ -163,8 +141,6 @@ ALIASES: Dict[str, Tuple[str, ...]] = {
     "BEDROOM": ("BED", "ROOM"),
     "CLASSROOM": ("CLASS", "ROOM"),
     "RAINCOAT": ("RAIN", "COAT"),
-    # person nouns: verb or subject + the agent ending (both flat hands moving down the sides; built by
-    # library.py from the PERSON sign's movement, since WLASL has no clip of the ending alone)
     "TEACHER": ("TEACH", "AGENT"),
     "WORKER": ("WORK", "AGENT"),
     "DRIVER": ("DRIVE", "AGENT"),
@@ -241,10 +217,6 @@ ALIASES.update(PLURAL)
 DROP = ["A", "AN", "THE", "IS", "AM", "ARE", "BE", "WAS", "WERE", "BEEN", "BEING",
         "OF", "AT", "DO", "DOES", "DID", "LET'S", "LETS"]
 
-# Generated forms that are really other words (EVENING is not EVEN + ING, ONLY is not ON + LY, TOES is not
-# TO + ES) or mean something else (LATELY is not LATE, HEARTED is not HEART; WLASL's MEAN may be the cruel one,
-# so not MEANING). Found by checking every generated form that is a common English word against WordNet's
-# lemmas, then by hand.
 NOT_INFLECTED = {
     "ALLS", "ALLY", "APPLY", "ARMED", "AWAYS", "BALLY", "BARELY", "BELLY", "BESIDES", "BIGS", "BLUES", "BODILY",
     "BROTHERLY", "BUTS", "BUTTED", "BUTTING", "CALLY", "CARLY", "COMMONS", "COSTLY", "COURTLY", "DEADLY", "DEATHLY",
@@ -261,9 +233,6 @@ NOT_INFLECTED = {
     "TIMING", "TIRED", "TOED", "TOES", "TOOTHED", "TOS", "TRAINING", "VERILY", "WALLY", "WED", "WEDDING", "WES",
     "WILLY", "WING", "WOKING", "WOMANLY", "WOODED", "WORLDLY", "YEARLY", "YOUS",
 }
-# Noun signs (assets/hand/nouns.txt) only get -ed and -ing forms when ASL signs the action the same way
-# (STUDIED, RAINING). Otherwise the form usually means something else: FIRED is not flames, BOOKED is not a book,
-# HEADED is not a head. Picked by hand from every such form that is a common English word.
 VERB_TOO = {
     "AWARD", "BALANCE", "BARK", "BATH", "BATTLE", "BENEFIT", "BIKE", "BLOW", "BULLY", "BUTTER", "CAMP", "COACH",
     "COLOR", "COMB", "COMMAND", "COMMENT", "CONFLICT", "CONTACT", "CONTROL", "COPY", "COST", "COUNSEL", "DAMAGE",
@@ -283,19 +252,15 @@ def _syllables(w: str) -> int:
 
 
 def _cvc(w: str) -> bool:
-    """Ends consonant-vowel-consonant, where English doubles the last letter (STOP -> STOPPED)."""
     return len(w) >= 3 and w[-1] not in VOWELS and w[-1] not in "WXY" and w[-2] in VOWELS and w[-3] not in VOWELS
 
 
 def inflections(word: str) -> List[str]:
-    """Regular English forms of a word: plural or -s, -ing, -ed and -ly. Over-generating is harmless
-    (nobody types HELLOED); forms that are really other words are listed in NOT_INFLECTED."""
     w = word
     if len(w) < 2 or not w.isalpha():
         return []
     out: List[str] = []
     cons_y = w.endswith("Y") and w[-2] not in VOWELS
-    # -s
     if cons_y:
         out.append(w[:-1] + "IES")
     elif w.endswith(("S", "X", "Z", "CH", "SH")):
@@ -304,7 +269,6 @@ def inflections(word: str) -> List[str]:
         out += [w + "S", w + "ES"]
     else:
         out.append(w + "S")
-    # -ing and -ed
     if w.endswith("IE"):
         stems_ing, stems_ed = [w[:-2] + "Y"], [w[:-1]]
     elif w.endswith("E") and not w.endswith(("EE", "YE", "OE")):
@@ -319,7 +283,6 @@ def inflections(word: str) -> List[str]:
     else:
         stems_ing, stems_ed = [w], [w]
     out += [s + "ING" for s in stems_ing] + [s + "ED" for s in stems_ed]
-    # -ly
     if cons_y:
         out.append(w[:-1] + "ILY")
     elif w.endswith("LE"):
@@ -339,12 +302,6 @@ def _suffix_tag(form: str) -> str:
 
 def resolve_aliases(vocab: Iterable[str], nouns: Iterable[str] = ()
                     ) -> Tuple[Dict[str, List[str]], List[str], Dict[str, str]]:
-    """Words that play existing signs, as {word: [gloss, ...]}, a note per entry that was left out, and the
-    grammar tag of each inflected word: S, ING, ED, LY (regular endings), PAST or PL (irregular forms).
-
-    A word that already has its own sign keeps it, and a listed alias beats a generated form. Alias targets
-    may name another alias (HE'S -> HE -> SHE). Signs in `nouns` get only the plural unless listed in VERB_TOO.
-    """
     nouns = set(nouns)
     signs = set(vocab)
     table: Dict[str, Tuple[str, ...]] = {}
@@ -389,7 +346,6 @@ def resolve_aliases(vocab: Iterable[str], nouns: Iterable[str] = ()
 
 
 def lookup(word: str, signs: Sequence[str] | set, alias: Dict[str, List[str]]) -> Optional[List[str]]:
-    """The glosses one English word plays, or None. Mirrors the page's tokenizer for a single word."""
     for w in (word, word[:-2] if word.endswith("'S") else None):
         if w in signs:
             return [w]

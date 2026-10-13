@@ -19,7 +19,6 @@ WLASL_JSON_NAME = "WLASL_v0.3.json"
 LETTERS_MANIFEST = Path("letters_manifest.json")
 REPORT_NAME = "setup_report.json"
 
-# YouTube needs a video extractor (yt-dlp); these hosts are skipped and reported.
 SKIPPED_HOSTS = {"www.youtube.com", "youtube.com", "youtu.be", "m.youtube.com"}
 USER_AGENT = "Mozilla/5.0 (signify setup_clips)"
 
@@ -44,7 +43,6 @@ def _download(url: str, dest: Path) -> None:
 
 
 def _fetch_one(task: dict, clips_dir: Path) -> dict:
-    """Download the source video (kept), then extract its hand motion to a .npz."""
     video = Path(task["video"])
     motion_path = clips_dir / task["motion_path"]
     try:
@@ -53,7 +51,7 @@ def _fetch_one(task: dict, clips_dir: Path) -> dict:
         from gloss_to_asl.motion import Motion
 
         motion = Motion.load(motion_path) if motion_path.is_file() else None
-        if motion is None or not motion.world:  # older 2D-only files are re-extracted with 3D landmarks
+        if motion is None or not motion.world:
             motion = extract_motion(video, task["start_ms"], task["end_ms"])
             motion.save(motion_path)
     except Exception as exc:
@@ -63,7 +61,6 @@ def _fetch_one(task: dict, clips_dir: Path) -> dict:
 
 
 def _fetch_gloss(candidates: List[dict], clips_dir: Path, max_per_gloss: int) -> List[dict]:
-    """Try a gloss's signings in order until `max_per_gloss` succeed; dead links fall through."""
     results, good = [], 0
     for task in candidates:
         if good >= max_per_gloss:
@@ -75,7 +72,6 @@ def _fetch_gloss(candidates: List[dict], clips_dir: Path, max_per_gloss: int) ->
 
 
 def video_ranges(wlasl_dir: Path = WLASL_DIR) -> dict:
-    """WLASL video id -> (start_ms, end_ms) of the sign in its video, as select_candidates cuts it."""
     out = {}
     for entry in json.loads((wlasl_dir / WLASL_JSON_NAME).read_text(encoding="utf-8")):
         for inst in entry["instances"]:
@@ -88,7 +84,6 @@ def video_ranges(wlasl_dir: Path = WLASL_DIR) -> dict:
 
 def select_candidates(wlasl: list, max_glosses: Optional[int],
                       wlasl_dir: Path = WLASL_DIR) -> Tuple[List[List[dict]], List[dict]]:
-    """(per-gloss candidate task lists, skipped-up-front) for the first `max_glosses` glosses."""
     per_gloss, skipped = [], []
     for entry in wlasl[:max_glosses]:
         gloss = entry["gloss"]
@@ -119,7 +114,6 @@ def select_candidates(wlasl: list, max_glosses: Optional[int],
 
 
 def fetch_letters(clips_dir: Path, manifest: Path) -> Tuple[Dict[str, Clip], List[dict]]:
-    """Letter clips: downloads from the manifest (letter -> url), plus any clips/letters/X.mp4 dropped in."""
     failures: List[dict] = []
     letters_dir = clips_dir / "letters"
     if manifest.is_file():
