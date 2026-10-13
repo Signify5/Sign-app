@@ -7,6 +7,7 @@ The page chains signs in the browser, so any typed sentence plays; words without
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import webbrowser
 from pathlib import Path
@@ -15,7 +16,7 @@ from typing import Callable, Dict, List, Optional, Sequence
 import numpy as np
 
 from gloss_to_asl.aliases import DROP, resolve_aliases
-from gloss_to_asl.clips import ClipIndex
+from gloss_to_asl.clips import ClipIndex, ClipIndexError
 from gloss_to_asl.fingerspell import ALPHABET, CHANGE_S, DOUBLE_SHIFT_M, HOLD_S, PATH_S, letter_frames, letter_pose
 from gloss_to_asl.hand3d import HANDS, MIRROR, TEMPLATE_PATH, Pose, Rig, Tracks, _blob, pack_rig, rest_pose, sign_track
 from gloss_to_asl.motion import FPS, TRANSITION_S, Motion, MotionError
@@ -27,6 +28,8 @@ FAILED_FAULTS = 10  # signcheck.py scores a serious problem 10, a warning 1
 SITE_TEMPLATE = Path(__file__).resolve().parent / "assets" / "hand" / "site_tpl.html"  # the website around the player
 GLOSS_JS = Path(__file__).resolve().parent / "assets" / "hand" / "gloss.js"  # English -> ASL sign order
 NOUNS_PATH = GLOSS_JS.with_name("nouns.txt")  # glosses that are mainly nouns (tools/build_nouns.py)
+# Every packed sign, kept in git so the pages build without the WLASL videos or clips/ (motion only, no video)
+PACK_PATH = Path(__file__).resolve().parent / "assets" / "signs.json.gz"
 
 # Shown as one-click examples; every word must be in the vocabulary unless listed in SPELLED.
 PRESETS = [
@@ -155,6 +158,27 @@ def write_library(lib: dict, out: Path, rig: Rig, title: str = "ASL signs and al
     return out
 
 
+def save_pack(lib: dict, path: Path = PACK_PATH) -> Path:
+    with gzip.open(path, "wt", encoding="utf-8", compresslevel=9) as fh:
+        json.dump(lib, fh, separators=(",", ":"))
+    return path
+
+
+def load_pack(path: Path = PACK_PATH) -> dict:
+    with gzip.open(path, "rt", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def write_pages(lib: dict, rig: Rig, out: Path, web: Optional[Path] = None) -> List[Path]:
+    """The desktop app's page, and with `web` the website's two pages."""
+    pages = [write_library(lib, out, rig)]
+    if web:
+        pages += [write_library(lib, web / "index.html", rig, title="Signify", template=SITE_TEMPLATE),
+                  write_library(lib, web / "library.html", rig, title="Sign library",
+                                nav='<nav class="nav"><a href="/">Back to speech to ASL</a></nav>')]
+    return pages
+
+
 def check_presets(glosses: Sequence[str]) -> None:
     """Fail the build if an example phrase would fall back to spelling a word that should be signed."""
     vocab = set(glosses)
@@ -179,9 +203,23 @@ def main(argv: Optional[List[str]] = None) -> None:
     ap.add_argument("--open", action="store_true", help="open the page in the browser")
     ap.add_argument("--web", type=Path, help="also write the website into this folder: index.html (mic page) and library.html")
     ap.add_argument("--keep-failed", action="store_true", help="also sign glosses that fail a serious sign check")
+    ap.add_argument("--from-pack", action="store_true",
+                    help=f"build from the signs kept in git ({PACK_PATH.name}) even when clips/ exists")
     args = ap.parse_args(argv)
 
-    rig, index = Rig.load(), ClipIndex.load()
+    rig = Rig.load()
+    try:
+        index = None if args.from_pack else ClipIndex.load()
+    except ClipIndexError:
+        index = None
+    if index is None:
+        lib = load_pack()
+        print(f"using the {len(lib['signs'])} signs in {PACK_PATH.name}")
+        for page in write_pages(lib, rig, args.out, args.web):
+            print(f"wrote {page} ({page.stat().st_size // 1024} KB)")
+        if args.open:
+            webbrowser.open(args.out.resolve().as_uri())
+        return
     glosses = vocabulary(index, args.keep_failed)
     if not args.keep_failed:
         failed = failed_glosses(index)
@@ -194,15 +232,14 @@ def main(argv: Optional[List[str]] = None) -> None:
     print(f"\r{len(lib['signs'])} of {len(glosses)} signs packed, {len(lib['alias'])} more words play them")
     for note in resolve_aliases(lib["signs"])[1]:
         print("alias left out:", note)
-    path = write_library(lib, args.out, rig)
-    print(f"wrote {path} ({path.stat().st_size // 1024} KB)")
-    if args.web:
-        for page in (write_library(lib, args.web / "index.html", rig, title="Signify", template=SITE_TEMPLATE),
-                     write_library(lib, args.web / "library.html", rig, title="Sign library",
-                                   nav='<nav class="nav"><a href="/">Back to speech to ASL</a></nav>')):
-            print(f"wrote {page} ({page.stat().st_size // 1024} KB)")
+    if not args.limit:
+        pack = save_pack(lib)
+        print(f"saved {pack} ({pack.stat().st_size // 1024} KB) -- commit it so others skip the download")
+    pages = write_pages(lib, rig, args.out, args.web)
+    for page in pages:
+        print(f"wrote {page} ({page.stat().st_size // 1024} KB)")
     if args.open:
-        webbrowser.open(path.resolve().as_uri())
+        webbrowser.open(pages[0].resolve().as_uri())
 
 
 if __name__ == "__main__":

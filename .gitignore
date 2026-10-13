@@ -15,7 +15,7 @@ venv/
 # Downloaded model files
 models/
 
-# Downloaded datasets (WLASL, ASL-LEX) and the motion built from them: not redistributable
+# Downloaded datasets (WLASL videos, ASL-LEX) and the full tracking output; the packed motion is gloss_to_asl/assets/signs.json.gz
 datasets/
 clips/
 
@@ -33,7 +33,7 @@ tests/
 pytest.ini
 gloss_to_asl/assets/makehuman/
 
-# The website pages hold the WLASL motion too: built locally (python -m gloss_to_asl.library --web web), never committed
+# The website pages: about 5 MB each, built from gloss_to_asl/assets/signs.json.gz (python -m gloss_to_asl.library --web web)
 web/*.html
 web/.vercel/
 .vercel/
