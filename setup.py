@@ -48,7 +48,11 @@ def bootstrap(argv: list) -> None:
         step("Making the virtual environment (venv/)")
         venv.EnvBuilder(with_pip=True).create(VENV)
     step("Installing the packages (the first time takes a few minutes)")
-    run(VENV_PYTHON, "-m", "pip", "install", "--upgrade", "--quiet", "pip")
+    # New pip trusts the computer's own certificates, which matters where an antivirus or proxy inspects HTTPS
+    # (e.g. Norton, Zscaler). The pip a venv starts with may not yet, so it upgrades itself with that turned on.
+    upgrade = [VENV_PYTHON, "-m", "pip", "install", "--upgrade", "--quiet", "pip"]
+    if subprocess.run([str(a) for a in upgrade + ["--use-feature=truststore"]], cwd=ROOT).returncode:
+        run(*upgrade)
     run(VENV_PYTHON, "-m", "pip", "install", "--quiet", "-r", ROOT / "requirements.txt")
     sys.exit(subprocess.run([str(VENV_PYTHON), __file__, *argv], cwd=ROOT).returncode)
 
