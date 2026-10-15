@@ -33,7 +33,7 @@ jobs:
           pip install numpy scipy
 
       - name: Build web pages
-        run: python -m gloss_to_asl.library --web web --out web/library.html
+        run: python -m gloss_to_asl.library --web web
 
       - name: Add .nojekyll
         run: touch web/.nojekyll

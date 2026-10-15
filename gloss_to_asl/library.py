@@ -152,9 +152,7 @@ def load_pack(path: Path = PACK_PATH) -> dict:
 def write_pages(lib: dict, rig: Rig, out: Path, web: Optional[Path] = None) -> List[Path]:
     pages = [write_library(lib, out, rig)]
     if web:
-        pages += [write_library(lib, web / "index.html", rig, title="Signify", template=SITE_TEMPLATE),
-                  write_library(lib, web / "library.html", rig, title="Sign library",
-                                nav='<nav class="nav"><a href="index.html">Back to speech to ASL</a></nav>')]
+        pages.append(write_library(lib, web / "index.html", rig, title="Signify", template=SITE_TEMPLATE))
     return pages
 
 
@@ -179,7 +177,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     ap.add_argument("-o", "--out", type=Path, default=Path("exports") / "library.html")
     ap.add_argument("--limit", type=int, help="only the first N glosses (for a quick test build)")
     ap.add_argument("--open", action="store_true", help="open the page in the browser")
-    ap.add_argument("--web", type=Path, help="also write the website into this folder: index.html (mic page) and library.html")
+    ap.add_argument("--web", type=Path, help="also write the website (index.html) into this folder")
     ap.add_argument("--keep-failed", action="store_true", help="also sign glosses that fail a serious sign check")
     ap.add_argument("--from-pack", action="store_true",
                     help=f"build from the signs kept in git ({PACK_PATH.name}) even when clips/ exists")

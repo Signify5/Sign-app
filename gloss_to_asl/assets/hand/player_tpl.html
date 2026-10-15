@@ -64,13 +64,16 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 <script>
 const RIG=/*RIG*/,TL0=/*TIMELINE*/,LIB=/*LIBRARY*/;
 (async()=>{
+const step=async(s,k)=>{document.getElementById('msg').textContent=s;document.dispatchEvent(new CustomEvent('loadstep',{detail:{text:s,k}}));
+  await new Promise(r=>{requestAnimationFrame(()=>setTimeout(r));setTimeout(r,60);});};
+await step('Unpacking the signs',1);
 const TA={'<i2':Int16Array,'<u2':Uint16Array,'|u1':Uint8Array,'|i1':Int8Array};
 async function unpack(P){const bin=await new Response(new Blob([Uint8Array.from(atob(P.blob),c=>c.charCodeAt(0))]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
   P.layout.forEach(([n,t,o,len])=>{P[n]=new TA[t](bin,o,len);});return P;}
 const HAND=await unpack(RIG);if(TL0)await unpack(TL0);if(LIB)await unpack(LIB);
 HAND.verts=Float32Array.from(HAND.verts,x=>x*1e-5);HAND.skinW=Float32Array.from(HAND.skinW,x=>x/255);
 {const F=[];for(let f=0;f<HAND.faces.length;f+=3){const a=HAND.faces[f],b=HAND.faces[f+1],c=HAND.faces[f+2];
-  if(Math.min(HAND.verts[a*3+1],HAND.verts[b*3+1],HAND.verts[c*3+1])>-0.068)F.push(a,b,c);}HAND.faces=F;}
+  if(Math.min(HAND.verts[a*3+1],HAND.verts[b*3+1],HAND.verts[c*3+1])>-0.026)F.push(a,b,c);}HAND.faces=F;}
 THREE.ColorManagement.legacyMode=false;
 const stage=document.getElementById('stage'),W=()=>stage.clientWidth||680,H=()=>stage.clientHeight||480;
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
@@ -119,6 +122,7 @@ function applySt(st,src,dim,out){
     for(let k=0;k<s.length;k++){const j=s[k][0]*dim,w=s[k][1];for(let d=0;d<dim;d++)out[o+d]+=src[j+d]*w;}}
   return out;
 }
+await step('Building the 3D hands',2);
 const nV0=HAND.verts.length/3;
 const L1=loopStencil(nV0,HAND.faces),L2=loopStencil(L1.n,L1.idx);
 const basePos=new Float32Array(HAND.verts);
@@ -240,7 +244,7 @@ function makeSkin(u){
         vec3 Vv=normalize(vViewPosition);float fr=pow(1.0-clamp(dot(N,Vv),0.0,1.0),3.0);
         gl_FragColor.rgb+=diffuseColor.rgb*vec3(0.85,0.22,0.14)*(max(wrap,0.0)*0.32+fr*0.10);
         gl_FragColor.rgb+=transmit(N,Vv,normalize(uRim),diffuseColor.rgb,gThin)*0.45;}
-       gl_FragColor.a*=smoothstep(-0.066,-0.018,vRest.y);
+       gl_FragColor.a*=smoothstep(-0.024,0.002,vRest.y);
        #include <dithering_fragment>`);
   };
   return m;
@@ -330,6 +334,11 @@ const hands=(TL0||LIB).mirror.map(m=>makeHand(m));
 const NB=HAND.names.length;
 let TL=null,FR=null,ST=0,PS=1e-4,spans=[],EDGE=null;
 const qa=new Q(),qb=new Q();
+const MCKEEP=[0,0.1,0.35,0.8],FAX=FING.map(f=>({tw:seg(f,1).normalize(),pip:AX[f][2].flex,dip:AX[f][3].flex}));
+const pos=q=>q.w<0?q.set(-q.x,-q.y,-q.z,-q.w):q;
+function hinge(q,a,lo,hi){pos(q);const t=Math.min(hi,Math.max(lo,2*Math.atan2(q.x*a.x+q.y*a.y+q.z*a.z,q.w)));q.setFromAxisAngle(a,t);return t;}
+const _tw=new Q();
+function untwist(q,a){pos(q);const d=q.x*a.x+q.y*a.y+q.z*a.z;_tw.set(a.x*d,a.y*d,a.z*d,q.w).normalize().invert();q.multiply(_tw);}
 const FLEXB=[[2,3,4],[6,7,8],[10,11,12],[14,15,16]];
 const ang=q=>2*Math.acos(Math.min(1,Math.abs(q.w)));
 function setFrame(t){
@@ -339,6 +348,10 @@ function setFrame(t){
     for(let b=0;b<NB;b++){const p=3+b*4;
       qa.set(FR[o0+p],FR[o0+p+1],FR[o0+p+2],FR[o0+p+3]).normalize();qb.set(FR[o1+p],FR[o1+p+1],FR[o1+p+2],FR[o1+p+3]).normalize();
       h.bones[b].quaternion.copy(qa).slerp(qb,a);}
+    MCKEEP.forEach((k,fi)=>{const mc=h.bones[1+fi*4].quaternion,mcp=h.bones[2+fi*4].quaternion,pip=h.bones[3+fi*4].quaternion,dip=h.bones[4+fi*4].quaternion,A=FAX[fi];
+      qa.copy(mc);mc.set(0,0,0,1).slerp(qa,k);qb.copy(mc).invert().multiply(qa);mcp.premultiply(qb);untwist(mcp,A.tw);
+      const p=hinge(pip,A.pip,-4*d2r,110*d2r),d=hinge(dip,A.dip,-8*d2r,85*d2r);
+      if(d>0)dip.setFromAxisAngle(A.dip,Math.min(d,0.3*d+0.75*Math.max(p,0)+4*d2r));});
     FLEXB.forEach((bs,fi)=>bs.forEach((b,k)=>h.u.uFlex.value[fi*3+k]=ang(h.bones[b].quaternion)));
     h.u.uFlex.value[12]=0;h.u.uThen.value=ang(h.bones[17].quaternion);h.u.uFlex.value[13]=ang(h.bones[18].quaternion);h.u.uFlex.value[14]=ang(h.bones[19].quaternion);
     h.outer.updateMatrixWorld(true);});
@@ -354,13 +367,20 @@ const loopB=document.getElementById('loop');loopB.onclick=()=>{loop=!loop;loopB.
   const s=document.createElement('button');s.className='tone';s.style.background=c;s.setAttribute('aria-label','Skin tone '+(i+1));
   s.onclick=()=>hands.forEach(h=>h.mat.color.setHex(hx));document.getElementById('tones').appendChild(s);});
 hands.forEach(h=>h.mat.color.setHex(0xe2b39d));
-function fit(){const n=TL.n,E=[0,1,2,3].map(()=>new Float32Array(n)),v=new V3();
-  for(let f=0;f<n;f++){setFrame(f);let x0=9,x1=-9,y0=9,y1=-9;
-    hands.forEach(h=>h.bones.forEach(b=>{b.getWorldPosition(v);x0=Math.min(x0,v.x);x1=Math.max(x1,v.x);y0=Math.min(y0,v.y);y1=Math.max(y1,v.y);}));
+const TIPB=[['thumb',JI['thumb-ip']],...FING.map(f=>[f,JI[f+'-dip']])];
+function fit(){let fs=[];TL.segments.forEach(([s,e])=>{for(let f=s;f<=e;f++)fs.push(f);});
+  if(!fs.length)fs=Array.from({length:TL.n},(_,f)=>f);
+  const n=fs.length,E=[0,1,2,3].map(()=>new Float32Array(n)),v=new V3();
+  setFrame(0);const R=hands.map(h=>h.g.position.clone());
+  for(let i=0;i<n;i++){const f=i;setFrame(fs[i]);let x0=9,x1=-9,y0=9,y1=-9;
+    const add=()=>{x0=Math.min(x0,v.x);x1=Math.max(x1,v.x);y0=Math.min(y0,v.y);y1=Math.max(y1,v.y);};
+    const act=hands.filter((h,k)=>h.g.position.distanceTo(R[k])>0.03);
+    (act.length?act:hands).forEach(h=>{h.bones.forEach(b=>{b.getWorldPosition(v);add();});
+      TIPB.forEach(([f,d])=>{v.copy(TIP[f]).sub(JP[d]).applyMatrix4(h.bones[d].matrixWorld);add();});});
     E[0][f]=-x0;E[1][f]=x1;E[2][f]=-y0;E[3][f]=y1;}
   return E.map(A=>A.sort()[Math.round(0.99*(n-1))]);}
 const CT=new V3();
-function frame(){const [l,r,b,t]=EDGE,tf=Math.tan(camera.fov*Math.PI/360),w=l+r+0.09,h=b+t+0.09;
+function frame(){const [l,r,b,t]=EDGE,tf=Math.tan(camera.fov*Math.PI/360),w=l+r+0.035,h=b+t+0.035;
   const d=Math.max(h/2/tf,w/2/tf/camera.aspect);CT.set((r-l)/2,(t-b)/2,0.15);
   camera.position.set(CT.x,CT.y+0.03,CT.z+d);camera.lookAt(CT);}
 function load(tl){TL=tl;FR=tl.frames;ST=tl.stride;PS=tl.ps||1e-4;
@@ -368,6 +388,7 @@ function load(tl){TL=tl;FR=tl.frames;ST=tl.stride;PS=tl.ps||1e-4;
   EDGE=fit();frame();t=0;hold=0;playing=true;playB.textContent='Pause';}
 if(TL0)load(TL0);
 if(LIB){
+  await step('Getting the signs ready',3);
   const L=LIB,NBn=L.nBones,SD=3+4*NBn,OF=L.outFps,HD=L.head,BN=L.bones,BW=(NBn-1)*3,RH=L.hands.indexOf('Right');
   Object.values(L.signs).forEach(([off,n,mask])=>{const nh=(mask&1)+((mask>>1)&1);
     for(let s=0;s<nh;s++)for(let i=1;i<n;i++){const r=off+s*n+i;
@@ -438,7 +459,9 @@ let last=performance.now();
   hands.forEach(h=>{h.u.uKey.value.copy(skinU.uKey.value);h.u.uRim.value.copy(skinU.uRim.value);});
   renderer.render(scene,camera);requestAnimationFrame(tick);
 })(last);
+document.dispatchEvent(new Event('playerready'));
 addEventListener('resize',()=>{renderer.setSize(W(),H());camera.aspect=W()/H();camera.updateProjectionMatrix();frame();});
-})().catch(e=>{document.getElementById('msg').textContent='Could not start the player: '+e.message;console.error(e);});
+})().catch(e=>{document.getElementById('msg').textContent='Could not start the player: '+e.message;console.error(e);
+  document.dispatchEvent(new CustomEvent('playererror',{detail:e.message}));});
 </script>
 </body></html>
