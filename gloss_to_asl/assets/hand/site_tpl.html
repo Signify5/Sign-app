@@ -144,7 +144,7 @@ p{margin:0}
   <dl class="credits" aria-label="Credits">
     <dt>hands</dt><dd><a href="https://www.makehumancommunity.org/" target="_blank" rel="noopener">MakeHuman</a> base mesh and skeleton, CC0.</dd>
     <dt>motion</dt><dd>Tracked from <a href="https://github.com/dxli94/WLASL" target="_blank" rel="noopener">WLASL</a> sign videos (Li et al., WACV 2020), used for academic study.<span id="abcCredit" hidden> Letters are authored handshapes.</span></dd>
-    <dt>caution</dt><dd>Machine-translated. Not checked by a Deaf signer.</dd>
+    <dt>caution</dt><dd>Machine-translated. Not checked by a Deaf signer. Sentences are sent to a grammar service to be analysed.</dd>
   </dl>
 
   <div class="parts" aria-hidden="true">
@@ -208,9 +208,16 @@ document.addEventListener('signed',({detail:{text,nlp}})=>{
   if(!ready){ready=true;if($('loop').getAttribute('aria-pressed')==='true')$('loop').click();}
 });
 
-const queue=[];let spoken=false;
-const busy=()=>{const p=window.player;return !p||!p.tl||spoken&&p.t<p.tl.n-1;};
-const next=()=>{spoken=true;signText(queue.shift());};
+const GLOSS_API=/*GLOSSAPI*/;
+window.fetchNlp=GLOSS_API?s=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),4000);
+  return fetch(GLOSS_API+'/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:s}),signal:c.signal})
+    .then(r=>r.ok?r.json():Promise.reject()).then(j=>j.words).finally(()=>clearTimeout(t));}:null;
+if(GLOSS_API)fetch(GLOSS_API+'/health').catch(()=>{});
+
+const queue=[];let spoken=false,pending=false;
+const busy=()=>{const p=window.player;return !p||!p.tl||pending||spoken&&p.t<p.tl.n-1;};
+const next=()=>{spoken=true;pending=true;signText(queue.shift());};
+document.addEventListener('signed',()=>{pending=false;});
 setInterval(()=>{if(ready&&queue.length&&!busy())next();},100);
 const heard=s=>{s=s.trim();if(!s)return;queue.push(s);if(ready&&!busy())next();};
 $('say').addEventListener('submit',()=>{spoken=false;queue.length=0;});

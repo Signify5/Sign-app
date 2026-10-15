@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import os
 import webbrowser
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence
@@ -131,6 +132,7 @@ def write_library(lib: dict, out: Path, rig: Rig, title: str = "ASL signs and al
                 .replace("/*RIG*/", json.dumps(pack_rig(rig), separators=(",", ":")))
                 .replace("/*TIMELINE*/", "null")
                 .replace("/*GLOSS*/", GLOSS_JS.read_text(encoding="utf-8"))
+                .replace("/*GLOSSAPI*/", json.dumps(os.environ.get("GLOSS_API", "").rstrip("/")))
                 .replace("/*LIBRARY*/", json.dumps(lib, separators=(",", ":"))))
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
