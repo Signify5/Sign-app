@@ -435,8 +435,9 @@ if(LIB){
     if(r.items.length)load(compose(r.items));else if(!r.skipped.length)note.textContent='Type a word or sentence.';
     document.dispatchEvent(new CustomEvent('signed',{detail:{text:s,nlp,result:r}}));}
   $('lib').hidden=false;$('abcCredit').hidden=false;
-  $('say').onsubmit=e=>{e.preventDefault();say(text.value);};
-  window.signText=(s,nlp)=>{text.value=s;say(s,nlp||null);};
+  const withNlp=s=>window.fetchNlp?window.fetchNlp(s).catch(()=>null):Promise.resolve(null);
+  $('say').onsubmit=e=>{e.preventDefault();const s=text.value;withNlp(s).then(n=>say(s,n));};
+  window.signText=(s,nlp)=>{text.value=s;if(nlp===undefined)withNlp(s).then(n=>say(s,n));else say(s,nlp);};
   const btn=(parent,label,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;parent.appendChild(b);return b;};
   L.presets.forEach(p=>btn($('presets'),p.charAt(0)+p.slice(1).toLowerCase(),()=>{text.value=p.toLowerCase();say(p);}));
   Object.keys(L.letters).forEach(c=>btn($('abc'),c,()=>{note.textContent='';load(compose([{label:c,tracks:spellTracks(c,1.0)}]));}));

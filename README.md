@@ -59,6 +59,17 @@ Then open http://localhost:8000 in **Chrome or Edge**.
 - The mic button uses the browser's own speech recognition. It only works in Chrome and Edge, and it sends your voice to Google or Microsoft to turn it into text.
 - Typing a sentence works in any browser.
 
+### Grammar service
+
+The page can ask a small spaCy service to analyse each sentence, which gives better word order and tenses. If the service is slow or down, the page falls back to its built-in rules. The service lives in `gloss_service/` and runs on Vercel:
+
+```bash
+cd gloss_service
+vercel deploy --prod
+```
+
+Set `GLOSS_API` to the service address when building the page (the Pages workflow does this). Leave it unset to use the built-in rules only.
+
 ### Host on GitHub Pages
 
 This repo includes a GitHub Actions workflow at `.github/workflows/deploy-pages.yml` that builds and deploys `web/` to GitHub Pages on every push to `main`.

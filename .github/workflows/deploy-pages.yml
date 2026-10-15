@@ -33,6 +33,8 @@ jobs:
           pip install numpy scipy
 
       - name: Build web pages
+        env:
+          GLOSS_API: https://signify-gloss.vercel.app
         run: python -m gloss_to_asl.library --web web
 
       - name: Add .nojekyll
