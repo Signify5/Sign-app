@@ -22,15 +22,15 @@ button:disabled,input:disabled{cursor:not-allowed}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 p{margin:0}
 
-.app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"brand" "view" "controls";min-height:100svh}
+.app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"brand" "view" "controls" "credits";min-height:100svh}
 .brand{grid-area:brand;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;padding:14px 16px}
 .brand b{font-size:19px;font-weight:600;letter-spacing:-.01em}
 .brand span{font-size:14px;color:var(--ink-2)}
 #view{grid-area:view;position:relative;height:54svh;min-height:300px;background:var(--plate);overflow:hidden}
 .controls{grid-area:controls;display:flex;flex-direction:column;gap:22px;padding:18px 16px 8px}
 @media (min-width:960px){
-  .app{grid-template-columns:minmax(340px,400px) minmax(0,1fr);grid-template-rows:auto 1fr;
-    grid-template-areas:"brand view" "controls view";height:100svh;min-height:560px}
+  .app{grid-template-columns:minmax(340px,400px) minmax(0,1fr);grid-template-rows:auto auto 1fr;
+    grid-template-areas:"brand view" "controls view" "credits view";height:100svh;min-height:560px}
   .brand{flex-direction:column;gap:2px;padding:28px 32px 0}
   #view{height:auto;min-height:0}
   .controls{padding:28px 32px 0;gap:28px}
@@ -51,6 +51,12 @@ p{margin:0}
 .plain:disabled{color:var(--mute);background:transparent}
 #status{font-size:14px;color:var(--ink-2);min-height:1.5em}
 
+.credits{grid-area:credits;align-self:end;margin:0;padding:16px 16px 24px;border-top:1px solid var(--rule);display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:baseline;font-size:13px;line-height:1.5;color:var(--ink-2)}
+.credits dt{font:12px var(--mono);color:var(--mute)}
+.credits dd{margin:0;min-width:0}
+.credits a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--rule);text-decoration-thickness:1.5px;text-underline-offset:3px}
+.credits a:hover{text-decoration-color:var(--accent)}
+@media (min-width:960px){.credits{margin:0 32px 24px;padding:16px 0 0}}
 .notation{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:baseline;margin:0}
 .notation dt{font:12px var(--mono);color:var(--mute)}
 .notation dd{margin:0;min-width:0}
@@ -135,8 +141,13 @@ p{margin:0}
   </div>
 
 
+  <dl class="credits" aria-label="Credits">
+    <dt>hands</dt><dd><a href="https://www.makehumancommunity.org/" target="_blank" rel="noopener">MakeHuman</a> base mesh and skeleton, CC0.</dd>
+    <dt>motion</dt><dd>Tracked from <a href="https://github.com/dxli94/WLASL" target="_blank" rel="noopener">WLASL</a> sign videos (Li et al., WACV 2020), used for academic study.<span id="abcCredit" hidden> Letters are authored handshapes.</span></dd>
+    <dt>caution</dt><dd>Machine-translated. Not checked by a Deaf signer.</dd>
+  </dl>
+
   <div class="parts" aria-hidden="true">
-    <span id="abcCredit" hidden></span>
     <button id="play" tabindex="-1"></button><select id="speed" tabindex="-1"><option value="1" selected>1x</option></select>
     <button id="loop" tabindex="-1" aria-pressed="true"></button><div id="lib"></div><div id="presets"></div><div id="abc"></div>
     <input id="find" tabindex="-1"><span id="count"></span><div id="list"></div>
