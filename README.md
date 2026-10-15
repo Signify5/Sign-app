@@ -15,7 +15,7 @@ The hand motion for all 1,973 signs is already in the repo, in `gloss_to_asl/ass
 ## Setup and run
 
 ```bash
-git clone https://github.com/prasada29-gif/Sign-app.git signify
+git clone https://github.com/Signify5/Sign-app.git signify
 ```
 
 ```bash
@@ -48,7 +48,7 @@ Press record, speak, and the 3D hands sign what you said.
 
 ## The website
 
-Setup also builds a website in `web/`: a mic page, and a sign library page with every sign, the alphabet and some phrases. To try it on your computer:
+Setup also builds a website in `web/index.html`: speak or type a sentence and the hands sign it. To try it on your computer:
 
 ```bash
 venv\Scripts\python -m http.server 8000 --directory web
