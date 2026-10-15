@@ -3,14 +3,14 @@
 <title>/*TITLE*/ - Speech to ASL</title>
 <meta name="description" content="Speak or type English and watch 3D hands sign it in American Sign Language.">
 <meta name="color-scheme" content="light">
-<meta name="theme-color" content="#0E3534">
+<meta name="theme-color" content="#0F2A5C">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#F5F7F8;--surface:#FFFFFF;--ink:#14202B;--ink-2:#4E5B68;--mute:#6B7785;--rule:#DCE2E7;--accent:#2F5BD3;
-  --plate:#0E3534;--plate-ink:#CFE3DF;--plate-line:rgba(207,227,223,.3);--dot:#F2C14E;--live:#C2412D;
+  --plate:#0F2A5C;--plate-ink:#D4E0F5;--plate-line:rgba(212,224,245,.3);--dot:#F2C14E;--live:#C2412D;
   --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
 }
 *{box-sizing:border-box}
@@ -22,21 +22,19 @@ button:disabled,input:disabled{cursor:not-allowed}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 p{margin:0}
 
-.app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"brand" "view" "controls" "notes";min-height:100svh}
+.app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"brand" "view" "controls";min-height:100svh}
 .brand{grid-area:brand;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;padding:14px 16px}
 .brand b{font-size:19px;font-weight:600;letter-spacing:-.01em}
 .brand span{font-size:14px;color:var(--ink-2)}
 #view{grid-area:view;position:relative;height:54svh;min-height:300px;background:var(--plate);overflow:hidden}
 .controls{grid-area:controls;display:flex;flex-direction:column;gap:22px;padding:18px 16px 8px}
-.notes{grid-area:notes;display:flex;flex-direction:column;gap:10px;padding:16px 16px 20px}
 @media (min-width:960px){
-  .app{grid-template-columns:minmax(340px,400px) minmax(0,1fr);grid-template-rows:auto auto 1fr;
-    grid-template-areas:"brand view" "controls view" "notes view";height:100svh;min-height:560px}
+  .app{grid-template-columns:minmax(340px,400px) minmax(0,1fr);grid-template-rows:auto 1fr;
+    grid-template-areas:"brand view" "controls view";height:100svh;min-height:560px}
   .brand{flex-direction:column;gap:2px;padding:28px 32px 0}
   #view{height:auto;min-height:0}
   .controls{padding:28px 32px 0;gap:28px}
-  .notes{align-self:end;padding:16px 32px 24px}
-}
+  }
 
 .input{display:flex;flex-direction:column;gap:10px}
 #mic{display:flex;align-items:center;justify-content:center;gap:10px;height:52px;padding:0 22px;border:0;border-radius:26px;background:var(--accent);color:#fff;font-weight:500;font-size:17px;transition:background-color .15s}
@@ -65,9 +63,6 @@ p{margin:0}
 #words span.moved{color:#7F9BE4}
 #words span.on{color:var(--ink)}
 #words span.on.moved{color:var(--accent)}
-.key{font-size:13px;color:var(--ink-2)}
-.key .moved{text-underline-offset:3px}
-#credit{font-size:12px;color:var(--mute)}
 
 #stage{position:absolute;inset:0}
 #joints{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
@@ -103,7 +98,7 @@ p{margin:0}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style></head><body>
 <div class="app" id="app" data-state="loading">
-  <header class="brand"><b>Signify</b><span>Speak or type English. The hands sign it in ASL.</span></header>
+  <header class="brand"><b>Signify</b></header>
 
   <section id="view" aria-label="Signing hands">
     <div id="stage" role="img" aria-label="3D hands signing the ASL words"></div>
@@ -139,12 +134,9 @@ p{margin:0}
     <p id="note" class="sr" aria-live="polite"></p>
   </div>
 
-  <footer class="notes">
-    <p class="key"><span class="drop">Struck out</span>: not signed in ASL. <span class="moved">Underlined</span>: moved into ASL word order.</p>
-    <p id="credit">Hands: MakeHuman (CC0). Motion: tracked from WLASL sign videos (academic use)<span id="abcCredit" hidden>; letters are authored handshapes</span>. Machine-translated; not checked by a Deaf signer.</p>
-  </footer>
 
   <div class="parts" aria-hidden="true">
+    <span id="abcCredit" hidden></span>
     <button id="play" tabindex="-1"></button><select id="speed" tabindex="-1"><option value="1" selected>1x</option></select>
     <button id="loop" tabindex="-1" aria-pressed="true"></button><div id="lib"></div><div id="presets"></div><div id="abc"></div>
     <input id="find" tabindex="-1"><span id="count"></span><div id="list"></div>
@@ -242,9 +234,9 @@ function draw(){const dpr=Math.min(devicePixelRatio||1,2),w=cv.clientWidth,hgt=c
   if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(hgt*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(hgt*dpr);}
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,hgt);if(mode==='hand')return;
   P.hands.forEach(h=>{const q=h.lm.map(o=>{v.setFromMatrixPosition(o.matrixWorld).project(P.camera);return [(v.x+1)/2*w,(1-v.y)/2*hgt];});
-    ctx.lineWidth=2;ctx.lineCap='round';ctx.strokeStyle='#5E9F96';ctx.beginPath();
+    ctx.lineWidth=2;ctx.lineCap='round';ctx.strokeStyle='#7396DC';ctx.beginPath();
     EDGES.forEach(([a,c])=>{ctx.moveTo(q[a][0],q[a][1]);ctx.lineTo(q[c][0],q[c][1]);});ctx.stroke();
-    ctx.fillStyle='#F2C14E';ctx.strokeStyle='#0E3534';ctx.lineWidth=1.5;
+    ctx.fillStyle='#F2C14E';ctx.strokeStyle='#0F2A5C';ctx.lineWidth=1.5;
     q.forEach((p,i)=>{ctx.beginPath();ctx.arc(p[0],p[1],i?3.5:5,0,Math.PI*2);ctx.fill();ctx.stroke();});});}
 function setMode(m){mode=m;if(P)P.hands.forEach(h=>h.g.visible=m!=='joints');}
 document.querySelectorAll('input[name=view]').forEach(r=>r.onchange=()=>setMode(r.value));
