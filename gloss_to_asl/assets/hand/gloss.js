@@ -1,6 +1,7 @@
 (function (root) {
   const NUM = ['ZERO', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN'];
   const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+  const GREET = new Set(['MORNING', 'AFTERNOON', 'EVENING', 'NIGHT']);
   const UNITS = new Set(['DAY', 'WEEK', 'MONTH', 'YEAR', 'MORNING', 'AFTERNOON', 'EVENING', 'NIGHT', 'WEEKEND',
     'HOUR', 'MINUTE', ...DAYS]);
   const TIME = new Set(['YESTERDAY', 'TODAY', 'TOMORROW', 'NOW', 'TONIGHT', 'LATER', 'SOON', 'RECENT', 'LAST WEEK',
@@ -41,7 +42,7 @@
     let wi = 0;
     for (const sentence of text.split(/(?<=[.!?;])\s*/).filter(s => words(s).length)) {
       const question = /\?\s*$/.test(sentence.trim());
-      const w = words(sentence), info = nlp ? nlp.slice(wi, wi + w.length) : [];
+      const w = words(sentence), noPast = question || WH.has(words(sentence)[0]) || AUX.has(words(sentence)[0]), info = nlp ? nlp.slice(wi, wi + w.length) : [];
       wi += w.length;
       let t = [];
       for (let i = 0; i < w.length;) {
@@ -77,7 +78,7 @@
       t.forEach((x, k) => {
         const afterBe = k > 0 && BE.has(t[k - 1].word);
         const past = x.nlp ? x.nlp.pos === 'VERB' && (x.nlp.tag === 'VBD' || x.nlp.tag === 'VBN' && !afterBe)
-                           : (x.tag === 'PAST' || x.tag === 'ED' && !afterBe) && !nouns.has(x.g);
+                           : (x.tag === 'PAST' && !afterBe || x.tag === 'ED' && !afterBe) && !nouns.has(x.g);
         if (!pastVerb && x.kind === 'sign' && past) pastVerb = x;
         if (PAST_AUX.has(x.word)) pastAux = true;
       });
@@ -85,7 +86,7 @@
       for (let k = 0; k < t.length; k++) {
         const g = W(k);
         let b = -1;
-        if (TIME.has(g)) b = k;
+        if (TIME.has(g)) { if (W(k - 1) === 'GOOD' && GREET.has(g)) continue; b = k; }
         else if (TIME_LEAD.has(g) && UNITS.has(W(k + 1))) b = k + 1;
         else if (t[k].kind === 'num' || QUANT.has(g)) {
           let e = k;
@@ -106,7 +107,7 @@
         return x.kind !== 'drop';
       });
       if (time.length) t = t.filter(x => x.g !== 'WILL');
-      if (!time.length && !negated && !question) {
+      if (!time.length && !negated && !noPast) {
         if (pastVerb && t.includes(pastVerb) && !t.some(x => x.g === 'FINISH') && has('FINISH')) t.push({g: 'FINISH', word: '', kind: 'sign', added: true});
         else if (!pastVerb && pastAux && has('PAST')) t.unshift({g: 'PAST', word: '', kind: 'sign', added: true});
       }
@@ -118,8 +119,9 @@
       });
       const wh = t.findIndex(x => WH.has(x.g));
       const startsWh = WH.has(w[0]) || time.length && wh === time.length;
-      const shaped = AUX.has(w[1]) || w[0] === 'HOW' && QUANT.has(w[1]);
-      if (wh >= 0 && startsWh && t.length > 1 && (question || shaped)) {
+      const greeting = w.length === 3 && w[0] === 'HOW' && w[1] === 'ARE' && w[2] === 'YOU';
+      const shaped = !greeting && AUX.has(w[1]) || w[0] === 'HOW' && QUANT.has(w[1]);
+      if (wh >= 0 && startsWh && t.length > 1 && !greeting && (question || shaped)) {
         const n = t[wh].g === 'HOW' && QUANT.has(W(wh + 1)) ? 2 : 1;
         t.push(...t.splice(wh, n));
       }

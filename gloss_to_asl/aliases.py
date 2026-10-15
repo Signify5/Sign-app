@@ -14,7 +14,7 @@ SAME_SIGN: List[Tuple[str, ...]] = [
     ("GRANDPA", "GRANDFATHER", "GRANDDAD"),
     ("KID", "CHILD"),
     ("BABY", "INFANT"),
-    ("SHE", "HE", "HIM", "IT"),
+    ("SHE", "HE", "HIM"),
     ("HIS", "HER", "ITS", "HERS"),
     ("WE", "US"),
     ("THEY", "THEM"),
@@ -97,7 +97,7 @@ PAST: Dict[str, Tuple[str, ...]] = {
 }
 
 PLURAL: Dict[str, Tuple[str, ...]] = {
-    "CHILDREN": ("CHILD",), "MEN": ("MAN",), "WOMEN": ("WOMAN",), "FEET": ("FOOT",),
+    "CHILDREN": ("CHILD",), "MEN": ("MAN",), "WOMEN": ("WOMAN",),
     "TEETH": ("TOOTH",), "MICE": ("MOUSE",), "GEESE": ("GOOSE",),
 }
 
@@ -108,7 +108,7 @@ ALIASES: Dict[str, Tuple[str, ...]] = {
     "GOOD NIGHT": ("GOOD", "NIGHT"),
     "FRIES": ("FRENCH FRIES",),
     "I'M": ("I",), "YOU'RE": ("YOU",), "WE'RE": ("WE",), "THEY'RE": ("THEY",),
-    "HE'S": ("HE",), "SHE'S": ("SHE",), "IT'S": ("IT",), "THAT'S": ("THAT",),
+    "HE'S": ("HE",), "SHE'S": ("SHE",), "THAT'S": ("THAT",),
     "WHAT'S": ("WHAT",), "WHERE'S": ("WHERE",), "WHO'S": ("WHO",), "HOW'S": ("HOW",),
     "WHEN'S": ("WHEN",), "WHY'S": ("WHY",), "THERE'S": ("THERE",), "HERE'S": ("HERE",),
     "I'VE": ("I",), "YOU'VE": ("YOU",), "WE'VE": ("WE",), "THEY'VE": ("THEY",),
@@ -121,9 +121,16 @@ ALIASES: Dict[str, Tuple[str, ...]] = {
     "AREN'T": ("NOT",), "WASN'T": ("NOT",), "WEREN'T": ("NOT",), "AIN'T": ("NOT",),
     "HAVEN'T": ("NOT",), "HASN'T": ("NOT",), "HADN'T": ("NOT",),
     "CAN'T": ("CANNOT",), "COULDN'T": ("CANNOT",), "CANT": ("CANNOT",),
-    "WON'T": ("REFUSE",), "WOULDN'T": ("NOT",),
+    "WON'T": ("WILL", "NOT"), "WOULDN'T": ("NOT",),
     "SHOULDN'T": ("SHOULD", "NOT"), "MUSTN'T": ("MUST", "NOT"),
-    "DONT": ("NOT",), "DOESNT": ("NOT",), "DIDNT": ("NOT",), "ISNT": ("NOT",), "WONT": ("REFUSE",),
+    "DONT": ("NOT",), "DOESNT": ("NOT",), "DIDNT": ("NOT",), "ISNT": ("NOT",), "WONT": ("WILL", "NOT"),
+    "COULD": ("CAN",), "WOULD": ("WILL",), "MIGHT": ("MAYBE",), "OUGHT": ("SHOULD",),
+    "LOOK": ("SEE",), "LOOKS": ("SEE",), "LOOKED": ("SEE",), "LOOKING": ("SEE",),
+    "JOB": ("WORK",), "JOBS": ("WORK",), "WELL": ("GOOD",), "MATTER": ("IMPORTANT",),
+    "LUCK": ("LUCKY",), "MERRY": ("HAPPY",),
+    "GREAT": ("GOOD",), "AWESOME": ("GOOD",), "TERRIFIC": ("GOOD",),
+    "O'CLOCK": ("TIME",),
+    "QUICKLY": ("FAST",), "SLOWLY": ("SLOW",),
     "IM": ("I",),
     "HUSBAND": ("MAN", "MARRY"),
     "WIFE": ("WOMAN", "MARRY"),
@@ -215,7 +222,7 @@ ALIASES.update(PAST)
 ALIASES.update(PLURAL)
 
 DROP = ["A", "AN", "THE", "IS", "AM", "ARE", "BE", "WAS", "WERE", "BEEN", "BEING",
-        "OF", "AT", "DO", "DOES", "DID", "LET'S", "LETS"]
+        "OF", "AT", "DO", "DOES", "DID", "LET'S", "LETS", "IT", "IT'S", "SO", "DOING"]
 
 NOT_INFLECTED = {
     "ALLS", "ALLY", "APPLY", "ARMED", "AWAYS", "BALLY", "BARELY", "BELLY", "BESIDES", "BIGS", "BLUES", "BODILY",
@@ -253,6 +260,14 @@ def _syllables(w: str) -> int:
 
 def _cvc(w: str) -> bool:
     return len(w) >= 3 and w[-1] not in VOWELS and w[-1] not in "WXY" and w[-2] in VOWELS and w[-3] not in VOWELS
+
+
+ADJECTIVES = ["BIG", "SMALL", "FAST", "SLOW", "HOT", "COLD", "OLD", "YOUNG", "TALL", "SHORT", "LONG", "STRONG",
+              "WEAK", "HAPPY", "EASY", "HARD", "LOUD", "QUIET", "NEW", "CLOSE", "NEAR", "FAR", "HIGH", "LOW", "DEEP",
+              "WIDE", "THICK", "THIN", "FAT", "SMART", "DARK", "LIGHT", "HEAVY", "RICH", "POOR", "CLEAN", "DIRTY",
+              "SAFE", "LARGE", "LITTLE", "WARM", "COOL", "SOFT", "SWEET", "CHEAP", "BUSY", "EARLY", "LATE", "NICE",
+              "KIND", "BRIGHT", "FUNNY", "PRETTY", "UGLY", "SICK", "SAD", "ANGRY", "HUNGRY", "TIRED", "WET", "DRY",
+              "FULL", "EMPTY", "SHARP", "SMOOTH", "ROUGH", "FRESH", "SIMPLE", "SILLY", "LUCKY", "HEALTHY", "TASTY"]
 
 
 def inflections(word: str) -> List[str]:
@@ -341,6 +356,18 @@ def resolve_aliases(vocab: Iterable[str], nouns: Iterable[str] = ()
             if form not in skip and not (noun_only and _suffix_tag(form) != "S"):
                 out[form] = target
                 tags[form] = _suffix_tag(form)
+                skip.add(form)
+    for base in ADJECTIVES:
+        if base not in signs:
+            continue
+        stem = base[:-1] if base.endswith("E") else base[:-1] + "I" if base.endswith("Y") else base
+        if _cvc(base) and _syllables(base) == 1:
+            stem = base + base[-1]
+        for suffix, extra in (("ER", "MORE"), ("EST", "MOST")):
+            form = stem + suffix if not base.endswith("E") else base + suffix[1:]
+            if form not in skip and extra in signs:
+                out[form] = [base, extra]
+                tags[form] = "CMP"
                 skip.add(form)
     return out, notes, tags
 

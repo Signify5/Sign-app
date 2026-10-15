@@ -146,7 +146,10 @@ def save_pack(lib: dict, path: Path = PACK_PATH) -> Path:
 
 def load_pack(path: Path = PACK_PATH) -> dict:
     with gzip.open(path, "rt", encoding="utf-8") as fh:
-        return json.load(fh)
+        lib = json.load(fh)
+    lib["alias"], _, lib["tags"] = resolve_aliases(lib["signs"], lib["nouns"])
+    lib["drop"] = DROP
+    return lib
 
 
 def write_pages(lib: dict, rig: Rig, out: Path, web: Optional[Path] = None) -> List[Path]:
