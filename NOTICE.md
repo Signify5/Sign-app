@@ -1,0 +1,38 @@
+# Credits and licenses
+
+Signify is a non-commercial educational project made for BWSI Cre[AT]e. It turns speech into American Sign Language (ASL) signed by 3D hands.
+
+## What the MIT license covers
+
+The `LICENSE` file covers the source code written for this project. It does **not** cover the sign motion data in `gloss_to_asl/assets/signs.json.gz`, which has its own terms below.
+
+## Data
+
+| What | Source | Terms |
+| --- | --- | --- |
+| Sign motion (`signs.json.gz`) | Tracked from WLASL sign videos. Li, Rodriguez, Yu and Li, "Word-level Deep Sign Language Recognition from Video: A New Large-scale Dataset and Methods Comparison", WACV 2020. https://github.com/dxli94/WLASL | Computational Use of Data Agreement (C-UDA 1.0). Used here for academic, non-commercial study. The pack holds joint angles and positions only, with no video frames. The original videos come from third-party sites that set their own terms, and are not distributed. |
+| 3D hand model | MakeHuman base mesh, skeleton and weights. https://www.makehumancommunity.org/ | CC0 (public domain). |
+| Sign checking | ASL-LEX. https://asl-lex.org/ | Used for research. See the ASL-LEX site for its terms. |
+
+The translations are made by a program and have not been checked by a Deaf signer.
+
+## Software
+
+| What | Used for | License |
+| --- | --- | --- |
+| three.js | Drawing the 3D hands in the browser | MIT |
+| spaCy and en_core_web_sm | Grammar analysis | MIT |
+| FastAPI | The grammar service | MIT |
+| psycopg | Saving sentences to the database | LGPL-3.0 |
+| MediaPipe | Tracking hands in sign videos | Apache-2.0 |
+| Vosk | Offline speech recognition in the desktop app | Apache-2.0 |
+| PySide6 | The desktop app | LGPL-3.0 |
+| Instrument Sans and JetBrains Mono | Website fonts | SIL Open Font License 1.1 |
+
+## Sentences you type or say
+
+The website sends each sentence to a grammar service and saves it, with the time and whether it was spoken or typed, to help improve the translator. No names or other identifiers are saved with it. Speech recognition in Chrome and Edge is done by the browser vendor and not by this project.
+
+## Commercial use
+
+Do not sell Signify or use it commercially without first checking the terms of WLASL and of the sites its videos came from.

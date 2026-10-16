@@ -84,6 +84,8 @@ After deployment, the site is public on GitHub Pages with no password gate.
 
 ## Licenses and data: read before sharing
 
+The code is MIT licensed (see `LICENSE`). The sign data has separate terms. Every credit and license is listed in `NOTICE.md`.
+
 - **3D hands:** MakeHuman base mesh, skeleton and weights, CC0, free to use.
 - **Sign motion:** tracked by this project from WLASL sign videos.
   - WLASL is shared under the Computational Use of Data Agreement (C-UDA 1.0), which puts no limits on Results, meaning things made from the data that don't contain it.
