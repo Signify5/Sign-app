@@ -64,66 +64,84 @@ def pack(name, V, F, W, joints, tips, scale, extra=None):
     return out
 
 
-def build_makehuman(obj, skel, weights):
-    Vall, F = [], []
-    group = None
+def read_obj(obj):
+    V, groups, group = [], {}, None
     for line in open(obj, encoding="utf-8"):
         if line.startswith("v "):
-            Vall.append([float(t) for t in line.split()[1:4]])
+            V.append([float(t) for t in line.split()[1:4]])
         elif line.startswith("g "):
             group = line.split()[1]
-        elif line.startswith("f ") and group == "body":
-            F.append([int(t.split("/")[0]) - 1 for t in line.split()[1:]])
-    Vall = np.array(Vall)
-    s = json.load(open(skel)); wj = json.load(open(weights))["weights"]
-    jpos = lambda name: Vall[s["joints"][name]].mean(0)
-    head = lambda b: jpos(s["bones"][b]["head"])
-    tail = lambda b: jpos(s["bones"][b]["tail"])
+        elif line.startswith("f "):
+            idx = [int(t.split("/")[0]) - 1 for t in line.split()[1:]]
+            groups.setdefault(group, []).append(idx)
+    return np.array(V), groups
 
-    mh = {}
-    for i, f in enumerate(FINGERS):
-        mh[f"{f}-mc"] = f"metacarpal{i+1}.R"
-        for k, part in enumerate(("mcp", "pip", "dip")):
-            mh[f"{f}-{part}"] = f"finger{i+2}-{k+1}.R"
-    for k, part in enumerate(("cmc", "mcp", "ip")):
-        mh[f"thumb-{part}"] = f"finger1-{k+1}.R"
-    joints_old = {"wrist": head("wrist.R")}
-    for n, b in mh.items():
-        joints_old[n] = head(b)
-    tips_old = {f: tail(f"finger{i+2}-3.R") for i, f in enumerate(FINGERS)}
-    tips_old["thumb"] = tail("finger1-3.R")
 
+class MakeHumanHand:
+    """The MakeHuman right hand: wrist frame, scale and the part of the body mesh that belongs to the hand."""
+
+    def __init__(self, Vall, F, skel, weights):
+        self.V, self.F = Vall, F
+        s = self.skel = json.load(open(skel))
+        wj = self.wj = json.load(open(weights))["weights"]
+        self.jpos = lambda name: Vall[s["joints"][name]].mean(0)
+        self.head = lambda b: self.jpos(s["bones"][b]["head"])
+        self.tail = lambda b: self.jpos(s["bones"][b]["tail"])
+        head, tail = self.head, self.tail
+
+        mh = {}
+        for i, f in enumerate(FINGERS):
+            mh[f"{f}-mc"] = f"metacarpal{i+1}.R"
+            for k, part in enumerate(("mcp", "pip", "dip")):
+                mh[f"{f}-{part}"] = f"finger{i+2}-{k+1}.R"
+        for k, part in enumerate(("cmc", "mcp", "ip")):
+            mh[f"thumb-{part}"] = f"finger1-{k+1}.R"
+        self.mh = mh
+        self.joints_old = {"wrist": head("wrist.R")}
+        for n, b in mh.items():
+            self.joints_old[n] = head(b)
+        self.tips_old = {f: tail(f"finger{i+2}-3.R") for i, f in enumerate(FINGERS)}
+        self.tips_old["thumb"] = tail("finger1-3.R")
+
+        n = len(Vall)
+        W = np.zeros((n, len(NAMES)))
+        for n_, b in mh.items():
+            for vi, w in wj.get(b, []):
+                W[vi, JI[n_]] += w
+        for b in ("wrist.R", "lowerarm02.R", "lowerarm01.R"):
+            for vi, w in wj.get(b, []):
+                W[vi, 0] += w
+        self.W = W
+
+        jo = self.joints_old
+        self.R0 = frame(jo["wrist"], jo["middle-mcp"], jo["thumb-mcp"])
+        self.wr = jo["wrist"]
+        hand_len = np.linalg.norm((self.tips_old["middle"] - self.wr) @ self.R0.T)
+        self.scale = 0.19 / hand_len
+        self.Vn = (Vall - self.wr) @ self.R0.T * self.scale
+        arm_dir = -(self.wr - head("lowerarm02.R")) @ self.R0.T
+        self.arm_dir = arm_dir / np.linalg.norm(arm_dir)
+        self.keep_v = (W.sum(1) > 0.5) & ((self.Vn @ self.arm_dir) < 0.09)
+
+
+def build_makehuman(obj, skel, weights):
+    Vall, groups = read_obj(obj)
+    F = groups["body"]
+    h = MakeHumanHand(Vall, F, skel, weights)
+    W, Vn, scale = h.W.copy(), h.Vn, h.scale
     n = len(Vall)
-    W = np.zeros((n, len(NAMES)))
-    for n_, b in mh.items():
-        for vi, w in wj.get(b, []):
-            W[vi, JI[n_]] += w
-    hand_total = W.sum(1).copy()
-    for b in ("wrist.R", "lowerarm02.R", "lowerarm01.R"):
-        for vi, w in wj.get(b, []):
-            W[vi, 0] += w
-
-    R0 = frame(joints_old["wrist"], joints_old["middle-mcp"], joints_old["thumb-mcp"])
-    wr = joints_old["wrist"]
-    Vn = (Vall - wr) @ R0.T
-    hand_len = np.linalg.norm((tips_old["middle"] - wr) @ R0.T)
-    scale = 0.19 / hand_len
-    Vn *= scale
-    arm_dir = -(joints_old["wrist"] - head("lowerarm02.R")) @ R0.T
-    arm_dir /= np.linalg.norm(arm_dir)
-    keep_v = (W.sum(1) > 0.5) & ((Vn @ arm_dir) < 0.09)
     faces = []
     for f in F:
-        if all(keep_v[i] for i in f):
+        if all(h.keep_v[i] for i in f):
             faces.append(f[:3]); faces.append([f[0], f[2], f[3]]) if len(f) == 4 else None
     faces = np.array(faces)
     used = np.unique(faces)
     remap = -np.ones(n, int); remap[used] = np.arange(len(used))
     V = Vn[used]; Wk = W[used]; Fk = remap[faces]
     Wk /= Wk.sum(1, keepdims=True)
-    to = lambda p: (p - wr) @ R0.T * scale
-    joints = np.array([to(joints_old[nm]) for nm in NAMES])
-    tips = {k: to(v) for k, v in tips_old.items()}
+    to = lambda p: (p - h.wr) @ h.R0.T * scale
+    joints = np.array([to(h.joints_old[nm]) for nm in NAMES])
+    tips = {k: to(v) for k, v in h.tips_old.items()}
     return pack("MakeHuman", V, Fk, Wk, joints, tips, 0.19)
 
 
