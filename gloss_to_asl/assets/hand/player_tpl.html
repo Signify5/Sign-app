@@ -396,29 +396,57 @@ vec3 faceMorph(vec3 p){
   const skin=new THREE.MeshPhysicalMaterial({color:0xe2b39d,roughness:0.52,metalness:0,sheen:0.25,sheenRoughness:0.6,sheenColor:new THREE.Color(0xffb0a0),clearcoat:0.05,clearcoatRoughness:0.6,envMapIntensity:0.5,transparent:true});
   skin.onBeforeCompile=s=>{
     Object.assign(s.uniforms,U);
-    s.vertexShader=FACE_GLSL+'attribute float cover;varying float vCover;varying vec3 vRestB;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvCover=cover;vRestB=position;transformed+=faceMorph(position);');
-    s.fragmentShader=`varying float vCover;varying vec3 vRestB;uniform vec3 uEyeR,uKey,uRim;uniform float uMouthY;
+    s.vertexShader=FACE_GLSL+'attribute float cover;attribute float cav;varying float vCav;varying float vCover;varying vec3 vRestB;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvCover=cover;vCav=cav;vRestB=position;transformed+=faceMorph(position);');
+    s.fragmentShader=PERTURB_GLSL+`varying float vCav;varying float vCover;varying vec3 vRestB;uniform vec3 uEyeR,uKey,uRim;uniform float uMouthY;float gLip=0.0,gOil=0.0,gH=0.0;
 float hsh(vec3 p){p=fract(p*0.3183099+0.1);p*=17.0;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
 float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
  return mix(mix(mix(hsh(i),hsh(i+vec3(1,0,0)),f.x),mix(hsh(i+vec3(0,1,0)),hsh(i+vec3(1,1,0)),f.x),f.y),
             mix(mix(hsh(i+vec3(0,0,1)),hsh(i+vec3(1,0,1)),f.x),mix(hsh(i+vec3(0,1,1)),hsh(i+vec3(1,1,1)),f.x),f.y),f.z);}
 `+s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
       {vec3 p=vRestB;vec3 col=diffuseColor.rgb;
+       vec3 pm=vec3(-abs(p.x),p.y,p.z);vec3 q=pm-uEyeR;
+       float face=smoothstep(0.075,0.095,p.z)*smoothstep(0.08,0.2,p.y);
        col*=0.97+0.06*vnoise(p*260.0);
        col*=mix(vec3(1.0),vec3(1.0,0.94,0.93),0.5*vnoise(p*60.0+1.7));
-       vec3 q=vec3(-abs(p.x),p.y,p.z)-uEyeR;
+       // regional colour: cheeks and nose flush, forehead a touch yellower, under-eye and neck cooler
+       float cheek=exp(-dot(vec2((pm.x+0.036)/0.022,(pm.y-uEyeR.y+0.034)/0.020),vec2((pm.x+0.036)/0.022,(pm.y-uEyeR.y+0.034)/0.020)))*face;
+       float noseTip=exp(-pow(length(vec2(p.x/0.010,(p.y-0.176)/0.010)),2.0))*face;
+       float forehead=smoothstep(uEyeR.y+0.04,uEyeR.y+0.075,p.y)*face;
+       float underEye=exp(-pow((q.y+0.011)/0.007,2.0))*smoothstep(0.024,0.012,abs(q.x))*face;
+       col*=mix(vec3(1.0),vec3(1.0,0.86,0.84),cheek*0.55);
+       col*=mix(vec3(1.0),vec3(1.0,0.84,0.80),noseTip*0.6);
+       col*=mix(vec3(1.0),vec3(1.0,1.0,0.96),forehead*0.5);
+       col*=mix(vec3(1.0),vec3(0.90,0.86,0.90),underEye*0.55);
+       float ear=smoothstep(0.070,0.080,abs(p.x))*step(p.z,0.082)*step(0.12,p.y)*step(p.y,0.25);
+       col*=mix(vec3(1.0),vec3(1.0,0.78,0.74),ear*0.7);
+       // eyelids: lash line, crease, soft shadow in the socket
        float rho=length(vec2(q.x/0.0170,q.y/0.0062));
-       float rim=exp(-pow((rho-1.0)/0.24,2.0))*(q.y>-0.001?1.0:0.35);
-       col=mix(col,vec3(0.08,0.05,0.045),clamp(rim,0.0,1.0)*0.85);
-       float sock=smoothstep(3.2,1.2,length(vec2(q.x/0.020,q.y/0.016)))*step(-0.02,q.z);
-       col*=1.0-0.10*sock;
+       float rim=exp(-pow((rho-1.0)/0.22,2.0))*(q.y>-0.001?1.0:0.35);
+       col=mix(col,vec3(0.07,0.045,0.04),clamp(rim,0.0,1.0)*0.8);
+       float crease=exp(-pow((rho-2.15)/0.25,2.0))*step(0.0,q.y)*face;
+       col*=1.0-0.16*crease;
+       float sock=smoothstep(3.4,1.2,length(vec2(q.x/0.022,q.y/0.017)))*step(-0.02,q.z);
+       col*=mix(vec3(1.0),vec3(0.92,0.84,0.84),sock*0.5);
+       // lips: vermilion with a defined border, darker mouth line
        float ly=(p.y-uMouthY)/0.0125;
-       float lip=smoothstep(1.1,0.75,abs(ly))*smoothstep(0.030,0.022,abs(p.x))*smoothstep(0.075,0.095,p.z);
-       col=mix(col,col*vec3(0.78,0.52,0.52),lip*0.8);
-       float ml=exp(-pow(ly/0.09,2.0))*smoothstep(0.026,0.018,abs(p.x))*smoothstep(0.075,0.095,p.z);
-       col*=1.0-0.45*ml;
+       float lipW=smoothstep(0.031,0.022,abs(p.x))*smoothstep(0.075,0.095,p.z);
+       float lip=smoothstep(1.12,0.78,abs(ly))*lipW;
+       float border=exp(-pow((abs(ly)-1.0)/0.10,2.0))*lipW;
+       col=mix(col,col*vec3(0.80,0.50,0.50),lip*0.85);
+       col*=1.0-0.12*border;
+       float ml=exp(-pow(ly/0.08,2.0))*smoothstep(0.026,0.016,abs(p.x))*smoothstep(0.075,0.095,p.z);
+       col*=1.0-0.55*ml;
+       gLip=lip;
+       // dark stubble-free pores: tiny darker specks
+       col*=1.0-0.05*step(0.82,vnoise(p*900.0));
+       gOil=exp(-pow((p.x)/0.030,2.0))*smoothstep(uEyeR.y+0.01,uEyeR.y+0.07,p.y)*face*0.6+exp(-pow(length(vec2(p.x/0.016,(p.y-0.166)/0.022)),2.0))*face+cheek*0.25;
+       gH=(vnoise(p*1500.0)-0.5)*0.00007+(vnoise(p*520.0)-0.5)*0.00009
+          -0.00012*pow(abs(sin(p.y*340.0+vnoise(p*40.0)*3.0)),10.0)*forehead*smoothstep(0.0,0.012,abs(p.x)+0.012);
+       col*=mix(vec3(1.0),vec3(0.62,0.40,0.36),clamp(vCav*1.15,0.0,1.0));
        col=mix(col,vec3(0.035,0.04,0.05),smoothstep(0.85,1.0,vCover));
        diffuseColor.rgb=col;}`)
+     .replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=clamp(roughnessFactor-0.22*gOil-0.28*gLip+gH*700.0,0.22,0.8);')
+     .replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\nnormal=myPerturb(-vViewPosition,normal,vec2(dFdx(gH),dFdy(gH)),faceDirection);')
      .replace('#include <dithering_fragment>',`
        {vec3 N=normalize(normal);float ndl=dot(N,normalize(uKey));
         float wrap=max(0.0,(ndl+0.45)/1.45)-max(ndl,0.0);
@@ -428,7 +456,7 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
        #include <dithering_fragment>`);
     s.uniforms.uMouthY={value:BODY.mouthY};
   };
-  const bGeo=mkGeo('bVerts','bFaces','bSkinIdx','bSkinW');bGeo.setAttribute('cover',new THREE.BufferAttribute(Float32Array.from(BODY.bCover),1));
+  const bGeo=mkGeo('bVerts','bFaces','bSkinIdx','bSkinW');bGeo.setAttribute('cover',new THREE.BufferAttribute(Float32Array.from(BODY.bCover,x=>x/255),1));bGeo.setAttribute('cav',new THREE.BufferAttribute(Float32Array.from(BODY.bAo,x=>x/255),1));
   const body=new THREE.SkinnedMesh(bGeo,skin);
   body.frustumCulled=false;body.castShadow=body.receiveShadow=true;grp.add(body);
   bones.forEach(b=>body.add(b));body.updateMatrixWorld(true);body.bind(skeleton,new M4());
@@ -448,11 +476,18 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
   hairMat.onBeforeCompile=s=>{
     s.vertexShader='attribute float hl;varying float vHl;varying vec3 vP;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvP=position;vHl=hl;');
     s.fragmentShader='varying float vHl;varying vec3 vP;\nfloat h1(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\n'+s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
-      {float fe=vHl+(h1(floor(vP.xy*2600.0))-0.5)*0.024-0.01;if(fe<0.0)discard;
+      {float fe=vHl+(h1(floor(vP.xy*3200.0))-0.5)*0.07-0.015;if(fe<0.0)discard;
        float a=atan(vP.x,vP.z-0.02);float s=h1(vec2(floor(a*210.0),floor(vP.y*900.0)))*0.6+h1(vec2(floor(a*55.0),floor(vP.y*140.0)))*0.4;
        diffuseColor.rgb*=0.55+0.9*s;}`);};
+  const strandGeoG=()=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(f3('gVerts'),3));
+    g.setAttribute('uv',new THREE.BufferAttribute(Float32Array.from(BODY.gUv,x=>x/65535),2));g.setIndex(new THREE.BufferAttribute(u16('gFaces'),1));g.computeVertexNormals();return g;};
   const hGeo=mkGeo('hVerts','hFaces');hGeo.setAttribute('hl',new THREE.BufferAttribute(Float32Array.from(BODY.hHl,x=>x/100),1));
   const hair=rigid(hGeo,hairMat);hair.castShadow=true;
+  const strandsMat=new THREE.MeshStandardMaterial({color:0x2e2018,roughness:0.5,metalness:0,side:THREE.DoubleSide,alphaTest:0.5,envMapIntensity:0.7});
+  strandsMat.onBeforeCompile=s=>{s.vertexShader='varying vec2 vUv2;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvUv2=uv;');
+    s.fragmentShader='varying vec2 vUv2;\n'+s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+      {diffuseColor.rgb*=0.5+1.05*vUv2.y;diffuseColor.rgb+=vec3(0.02,0.012,0.006)*smoothstep(0.7,1.0,vUv2.y);diffuseColor.a=1.0-smoothstep(0.62,1.0,vUv2.x);}`);};
+  const hairStrands=rigid(strandGeoG(),strandsMat);hairStrands.castShadow=true;
 
   // brows: ribbons on the face (right one stored, left mirrored)
   const browGeo=(()=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(f3('rVerts'),3));
@@ -464,9 +499,20 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
       s.fragmentShader='varying vec2 vUv2;\nfloat h1(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\n'+s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
         {float across=1.0-abs(vUv2.y*2.0-1.0);float taper=1.0-smoothstep(0.82,1.0,vUv2.x);float head=smoothstep(0.0,0.07,vUv2.x);
          float st=0.78+0.22*h1(vec2(floor(vUv2.x*45.0),floor(vUv2.y*7.0)));
-         diffuseColor.a*=smoothstep(0.0,0.6,across)*taper*head*st*0.88;}`);};
+         diffuseColor.a*=smoothstep(0.0,0.7,across)*taper*head*st*0.32;}`);};
     m.userData.u=u;return m;};
   const brows=[0,1].map(i=>{const m=rigid(browGeo,browMat());m.renderOrder=3;return m;});
+  const strandGeo=p=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(f3(p+'Verts'),3));
+    g.setAttribute('uv',new THREE.BufferAttribute(Float32Array.from(BODY[p+'Uv'],x=>x/65535),2));g.setIndex(new THREE.BufferAttribute(u16(p+'Faces'),1));return g;};
+  const strandMat=(useBrow,dark,gain)=>{const u={uEyeR:U.uEyeR,uBrow:{value:new THREE.Vector2()},uBlink:U.uBlink};
+    const m=new THREE.MeshStandardMaterial({color:dark,roughness:0.55,transparent:true,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});
+    m.onBeforeCompile=s=>{Object.assign(s.uniforms,u);
+      s.vertexShader=FACE_GLSL+'varying vec2 vUv2;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvUv2=uv;transformed+=eyeMorph(position,'+(useBrow?'uBrow.x':'0.0')+',uBlink);');
+      s.fragmentShader='varying vec2 vUv2;\n'+s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+        {diffuseColor.rgb*=0.55+0.9*vUv2.y;diffuseColor.a*=${gain.toFixed(2)}*(1.0-pow(vUv2.x,1.6))*smoothstep(0.0,0.08,vUv2.x+0.06);}`);};
+    m.userData.u=u;return m;};
+  const browHair=[0,1].map(()=>{const m=rigid(strandGeo('k'),strandMat(true,0x2b1c12,1.0));m.renderOrder=4;return m;});
+  const lashes=[0,1].map(()=>{const m=rigid(strandGeo('l'),strandMat(false,0x0c0806,1.0));m.renderOrder=4;return m;});
 
   // eyes (right stored, left mirrored); the CC0 MakeHuman iris texture
   const eyeGeo=(()=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(f3('eVerts'),3));
@@ -512,8 +558,8 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
     headM.copy(Mn).multiply(Tm(Ph)).multiply(tmp.compose(new V3(),qRel,ONE)).multiply(Tm(Ph).invert());
     neckW.copy(Mn).multiply(Tm(Pn));headW.copy(headM).multiply(Tm(Ph));
     bones[0].matrix.identity();bones[1].matrix.copy(neckW);bones[2].matrix.copy(headW);bones.slice(0,3).forEach(b=>b.matrixWorldNeedsUpdate=true);
-    hair.matrix.copy(headM);hair.matrixWorldNeedsUpdate=true;
-    brows.forEach((m,i)=>{m.matrix.copy(headM);if(i)m.matrix.multiply(Mx);m.matrixWorldNeedsUpdate=true;m.material.userData.u.uBrow.value.x=i?st.browL:st.browR;});
+    hair.matrix.copy(headM);hair.matrixWorldNeedsUpdate=true;hairStrands.matrix.copy(headM);hairStrands.matrixWorldNeedsUpdate=true;
+    [brows,browHair,lashes].forEach(set=>set.forEach((m,i)=>{m.matrix.copy(headM);if(i)m.matrix.multiply(Mx);m.matrixWorldNeedsUpdate=true;m.material.userData.u.uBrow.value.x=i?st.browL:st.browR;}));
     eu.set(st.gy,st.gx,0);tq.setFromEuler(eu);
     eyes.forEach((m,i)=>{m.matrix.copy(headM).multiply(Tm(eyeC[i])).multiply(tmp.makeRotationFromQuaternion(tq));if(i)m.matrix.multiply(Mx);m.matrixWorldNeedsUpdate=true;});
     U.uBrow.value.set(st.browR,st.browL);U.uBlink.value=st.blink;

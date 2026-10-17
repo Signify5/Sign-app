@@ -79,7 +79,7 @@ def loop_subdivide(V, T, levels):
             if len(o) == 1:
                 bnd[p].append(q)
                 bnd[q].append(p)
-        newV = np.zeros((n + len(ends), 3))
+        newV = np.zeros((n + len(ends), V.shape[1]))
         for i in range(n):
             if len(bnd[i]) >= 2:
                 newV[i] = 0.75 * V[i] + 0.125 * (V[bnd[i][0]] + V[bnd[i][1]])
@@ -95,6 +95,27 @@ def loop_subdivide(V, T, levels):
             nt += [[a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]]
         V, T = newV, np.array(nt)
     return V, T
+
+
+def cavity(P, T):
+    """0..1 per vertex: how much the surface sits in a pit at three scales (eye sockets, nostrils, folds)."""
+    import scipy.sparse as sp
+    n = len(P)
+    r = np.concatenate([T[:, 0], T[:, 1], T[:, 2], T[:, 1], T[:, 2], T[:, 0]])
+    c = np.concatenate([T[:, 1], T[:, 2], T[:, 0], T[:, 0], T[:, 1], T[:, 2]])
+    A = sp.coo_matrix((np.ones(len(r)), (r, c)), shape=(n, n)).tocsr()
+    A.data[:] = 1
+    A = sp.diags(1 / np.maximum(A.sum(1).A1, 1)) @ A
+    N = vertex_normals(P, T)
+    out = np.zeros(n)
+    X = P.copy()
+    done = 0
+    for k, scale, w in ((2, 0.0012, 0.5), (6, 0.0030, 0.35), (16, 0.0060, 0.25)):
+        for _ in range(k - done):
+            X = A @ X
+        done = k
+        out += w * np.clip(((X - P) * N).sum(1) / scale, 0, 1)
+    return np.clip(out, 0, 1)
 
 
 def boundary_edges(T):
@@ -231,11 +252,12 @@ def build():
     u = np.abs(np.arctan2(Hd[:, 0], Hd[:, 2] - zc))
     hair_line = np.interp(u, [0, 0.35, 0.7, 1.0, 1.3, 1.6, 2.0, 2.5, np.pi], [8.0, 7.98, 7.9, 7.75, 7.58, 7.5, 7.3, 6.9, 6.7])
     dh = Hd[:, 1] - hair_line
-    thick = 0.0010 + 0.0085 * smoothstep(-0.05, 0.55, dh) * (1 + 0.35 * smoothstep(7.8, 8.45, Hd[:, 1]))
+    thick = 0.0016 + 0.0085 * smoothstep(-0.05, 0.55, dh) * (1 + 0.35 * smoothstep(7.8, 8.45, Hd[:, 1]))
     Hp = Hp + Hn * thick[:, None]
     Th = Th[(dh > -0.06)[Th].any(1)]
     Hp, Th, dh = compact(Hp, Th, dh)
     hl = np.round(np.clip(dh, -1.2, 1.2) * 100).astype("i1")
+    hair_strands = build_hair_strands(Hp, Th, dh, B.s)
     print("hair:", len(Hp), "verts,", len(Th), "tris")
 
     # ---- eyes (fitted to the base mesh with the .mhclo anchors)
@@ -248,16 +270,23 @@ def build():
     # rest orientation of the hand in the body frame: Vn = R0 (P - wrist)
     brows = build_brows(B, T0, P, Nrm)
 
+    X = np.concatenate([Pb, Wb, shirt_v[used_idx][:, None].astype(float)], 1)
+    X, Tb = loop_subdivide(X, Tb, 1)
+    Pb, Wb, cover = X[:, :3], X[:, 3:3 + len(BONES)], X[:, -1]
+    ao = cavity(Pb, Tb)
+    print("body subdivided:", len(Pb), "verts,", len(Tb), "tris")
     arrays = [
         ("bVerts", np.round(Pb * POS_Q).astype("<i2")), ("bFaces", Tb.astype("<u2")),
     ]
     bi, bw = top4(Wb)
     arrays += [("bSkinIdx", bi.astype("u1")), ("bSkinW", np.round(bw * 255).astype("u1")),
-               ("bCover", shirt_v[used_idx].astype("u1"))]
+               ("bCover", np.round(cover * 255).astype("u1")), ("bAo", np.round(ao * 255).astype("u1"))]
     si, sw = top4(Ws_)
     arrays += [("sVerts", np.round(Ps_ * POS_Q).astype("<i2")), ("sFaces", Ts_.astype("<u2")),
                ("sSkinIdx", si.astype("u1")), ("sSkinW", np.round(sw * 255).astype("u1"))]
     arrays += [("hVerts", np.round(Hp * POS_Q).astype("<i2")), ("hFaces", Th.astype("<u2")), ("hHl", hl)]
+    arrays += [("gVerts", np.round(hair_strands[0] * POS_Q).astype("<i2")), ("gUv", np.round(hair_strands[1] * 65535).astype("<u2")),
+               ("gFaces", hair_strands[2].astype("<u2"))]
     for k, v in eyes["arrays"].items():
         arrays.append((k, v))
     for k, v in brows["arrays"].items():
@@ -362,6 +391,60 @@ def build_eyes(B):
     }
 
 
+def strand_mesh(items, nseg=3):
+    """items: (base, dir, normal, length, width, lift, id) -> tapered ribbons, uv = (along, id)."""
+    V, UV, F = [], [], []
+    for base, d, nn, length, width, lift, sid in items:
+        side = np.cross(d, nn)
+        side /= np.linalg.norm(side) + 1e-12
+        k0 = len(V)
+        for k in range(nseg + 1):
+            tt = k / nseg
+            c = base + d * length * tt + nn * lift * tt * tt
+            half = width * (1 - 0.85 * tt) / 2
+            V += [c - side * half, c + side * half]
+            UV += [[tt, sid], [tt, sid]]
+        for k in range(nseg):
+            a = k0 + 2 * k
+            F += [[a, a + 1, a + 2], [a + 1, a + 3, a + 2]]
+    return np.array(V), np.array(UV), np.array(F)
+
+
+
+def build_hair_strands(Hp, Th, dh, s_m, count=3800):
+    """Short cropped hair: strands that follow the skull from the crown, stopping above the hairline."""
+    rng = np.random.default_rng(11)
+    Hn = vertex_normals(Hp, Th)
+    area = np.linalg.norm(np.cross(Hp[Th[:, 1]] - Hp[Th[:, 0]], Hp[Th[:, 2]] - Hp[Th[:, 0]]), axis=1)
+    ok = dh[Th].mean(1) > 0.04
+    w = np.where(ok, area, 0)
+    tri = rng.choice(len(Th), count, p=w / w.sum())
+    b = rng.dirichlet([1, 1, 1], count)
+    idx = Th[tri]
+    pos = (Hp[idx] * b[..., None]).sum(1)
+    nrm = (Hn[idx] * b[..., None]).sum(1)
+    nrm /= np.linalg.norm(nrm, axis=1, keepdims=True)
+    drop = (dh[idx] * b).sum(1) * s_m
+    crown = Hp[np.argmax(Hp[:, 1])]
+    g = np.array([0, -1.0, 0])
+    items = []
+    for p0, n0, dr in zip(pos, nrm, drop):
+        v = p0 - crown
+        t = v - n0 * (v @ n0)
+        t /= np.linalg.norm(t) + 1e-9
+        gt = g - n0 * (g @ n0)
+        gt /= np.linalg.norm(gt) + 1e-9
+        d = 0.55 * t + 0.6 * gt + rng.normal(0, 0.12, 3)
+        d -= n0 * (d @ n0) * 0.9
+        d /= np.linalg.norm(d)
+        L = rng.uniform(0.014, 0.030)
+        L = min(L, max(0.004, 1.1 * dr / max(0.25, -d[1])))
+        items.append((p0 - n0 * 0.0006, d, n0, L, rng.uniform(0.0010, 0.0016), rng.uniform(0.0008, 0.0035), rng.uniform()))
+    V, UV, F = strand_mesh(items, nseg=3)
+    print("hair strands:", len(items), "->", len(V), "verts")
+    return V, UV, F
+
+
 def build_brows(B, T0, P, Nrm):
     """Brow ribbons laid on the face, one per side, as (u along, v across) strips."""
     face = (P[T0][:, :, 2].min(1) > -0.1) & (P[T0][:, :, 1].min(1) > B.scene([0, 6.6, 0])[1])
@@ -393,7 +476,7 @@ def build_brows(B, T0, P, Nrm):
 
     eye = B.scene(np.array([-0.308, 7.284, 1.245]))
     # brow centre line relative to the right eye centre, in decimetres: (inward x, up y, half width)
-    pts = [(0.26, 0.205, 0.019), (0.18, 0.245, 0.027), (0.06, 0.280, 0.031), (-0.06, 0.288, 0.030),
+    pts = [(0.20, 0.210, 0.017), (0.15, 0.245, 0.025), (0.06, 0.280, 0.031), (-0.06, 0.288, 0.030),
            (-0.17, 0.268, 0.026), (-0.26, 0.232, 0.019), (-0.33, 0.185, 0.011)]
     NS = 6
     from scipy.interpolate import CubicSpline
@@ -418,7 +501,7 @@ def build_brows(B, T0, P, Nrm):
         side /= np.linalg.norm(side)
         for k in range(NS + 1):
             c = k / NS * 2 - 1
-            p = np.array([px, py, z]) + side * c * hw * B.s + nn * 0.0004
+            p = np.array([px, py, z]) + side * c * hw * B.s + nn * 0.0010
             verts.append(p)
             uv.append([tk, (c + 1) / 2])
     for i in range(len(ts) - 1):
@@ -427,9 +510,67 @@ def build_brows(B, T0, P, Nrm):
             tris += [[a, a + 1, a + NS + 1], [a + 1, a + NS + 2, a + NS + 1]]
     verts, uv, tris = np.array(verts), np.array(uv), np.array(tris)
     print("brow:", len(verts), "verts")
+    rng = np.random.default_rng(7)
+
+    # brow hairs: laid along the brow line, rising on the inner half and drooping at the tail
+    items = []
+    for _ in range(320):
+        tk = rng.uniform(0, 1) ** 1.1
+        x, y, hw = cs(tk)
+        x1, y1, _ = cs(min(1, tk + 0.01))
+        x0, y0, _ = cs(max(0, tk - 0.01))
+        tg = np.array([x1 - x0, y1 - y0])
+        tg /= np.linalg.norm(tg)
+        up = np.array([tg[1], -tg[0]])
+        c = rng.uniform(-1, 1) * 0.9
+        px = eye[0] + (x + up[0] * c * hw * 0.9) * B.s
+        py = eye[1] + (y + up[1] * c * hw * 0.9) * B.s
+        r = surface(px, py)
+        if r is None:
+            continue
+        z, nn = r
+        ang = np.radians(np.interp(tk, [0, 0.4, 1], [62, 20, -28]) + rng.normal(0, 9))
+        flat = np.array([tg[0], tg[1], 0.0])
+        flat -= nn * (flat @ nn)
+        flat /= np.linalg.norm(flat)
+        upv = np.array([up[0], up[1], 0.0])
+        upv -= nn * (upv @ nn)
+        upv /= np.linalg.norm(upv)
+        d = np.cos(ang) * flat + np.sin(ang) * upv
+        d -= nn * (d @ nn) * 0.7
+        d /= np.linalg.norm(d)
+        items.append((np.array([px, py, z]) + nn * 0.0006, d, nn, rng.uniform(0.0034, 0.0052), 0.00062, 0.0007, rng.uniform()))
+    kv, kuv, kf = strand_mesh(items)
+    print("brow hairs:", len(items))
+
+    # eyelashes along the lid margin (the same ellipse the skin shader darkens)
+    lash = []
+    for upper, count in ((True, 34), (False, 16)):
+        for i in range(count):
+            th = (np.linspace(0.10, 0.88, count)[i] if upper else np.linspace(-0.12, -0.78, count)[i]) * np.pi
+            th += rng.normal(0, 0.012)
+            px = eye[0] + 0.0172 * np.cos(th)
+            py = eye[1] + (0.0070 if upper else 0.0050) * np.sin(th) * (1.0 if upper else 0.8) + (0.0003 if upper else -0.0003)
+            r = surface(px, py)
+            if r is None:
+                continue
+            z, nn = r
+            radial = np.array([np.cos(th), np.sin(th) * 1.4, 0.0])
+            radial /= np.linalg.norm(radial)
+            d = radial * 0.55 + nn * (0.75 if upper else 0.45)
+            d += np.array([0, 0.35 if upper else -0.1, 0])
+            d /= np.linalg.norm(d)
+            outer = 1 - abs(np.cos(th)) * 0.0 - (np.cos(th) + 1) / 2 * 0.45
+            length = (0.0030 + 0.0030 * np.sin(th if upper else -th) * outer) * (1 if upper else 0.55) * rng.uniform(0.85, 1.15)
+            lash.append((np.array([px, py, z]) + nn * 0.0004, d, nn, length, 0.00095, 0.0012 if upper else 0.0003, rng.uniform()))
+    lv, luv, lf = strand_mesh(lash)
+    print("lashes:", len(lash))
+    q = lambda a: np.round(a * POS_Q).astype("<i2")
+    u16 = lambda a: np.round(a * 65535).astype("<u2")
     return {
-        "arrays": {"rVerts": np.round(verts * POS_Q).astype("<i2"), "rUv": np.round(uv * 65535).astype("<u2"),
-                   "rFaces": tris.astype("<u2")},
+        "arrays": {"rVerts": q(verts), "rUv": u16(uv), "rFaces": tris.astype("<u2"),
+                   "kVerts": q(kv), "kUv": u16(kuv), "kFaces": kf.astype("<u2"),
+                   "lVerts": q(lv), "lUv": u16(luv), "lFaces": lf.astype("<u2")},
         "meta": {"eye": eye.tolist()},
     }
 
