@@ -396,8 +396,8 @@ vec3 faceMorph(vec3 p){
   const skin=new THREE.MeshPhysicalMaterial({color:0xe2b39d,roughness:0.52,metalness:0,sheen:0.25,sheenRoughness:0.6,sheenColor:new THREE.Color(0xffb0a0),clearcoat:0.05,clearcoatRoughness:0.6,envMapIntensity:0.5,transparent:true});
   skin.onBeforeCompile=s=>{
     Object.assign(s.uniforms,U);
-    s.vertexShader=FACE_GLSL+'attribute float cover;attribute float cav;varying float vCav;varying float vCover;varying vec3 vRestB;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvCover=cover;vCav=cav;vRestB=position;transformed+=faceMorph(position);');
-    s.fragmentShader=PERTURB_GLSL+`varying float vCav;varying float vCover;varying vec3 vRestB;uniform vec3 uEyeR,uKey,uRim;uniform float uMouthY;float gLip=0.0,gOil=0.0,gH=0.0;
+    s.vertexShader=FACE_GLSL+'attribute float cover;attribute float cav;varying float vCav;varying float vCover;varying vec3 vRestB;varying vec3 vRestN;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvCover=cover;vCav=cav;vRestB=position;vRestN=normal;transformed+=faceMorph(position);');
+    s.fragmentShader=PERTURB_GLSL+`varying vec3 vRestN;varying float vCav;varying float vCover;varying vec3 vRestB;uniform vec3 uEyeR,uKey,uRim;uniform float uMouthY;float gLip=0.0,gOil=0.0,gH=0.0;
 float hsh(vec3 p){p=fract(p*0.3183099+0.1);p*=17.0;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
 float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
  return mix(mix(mix(hsh(i),hsh(i+vec3(1,0,0)),f.x),mix(hsh(i+vec3(0,1,0)),hsh(i+vec3(1,1,0)),f.x),f.y),
@@ -432,11 +432,20 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
        float lipW=smoothstep(0.031,0.022,abs(p.x))*smoothstep(0.075,0.095,p.z);
        float lip=smoothstep(1.12,0.78,abs(ly))*lipW;
        float border=exp(-pow((abs(ly)-1.0)/0.10,2.0))*lipW;
-       col=mix(col,col*vec3(0.80,0.50,0.50),lip*0.85);
+       col=mix(col,col*vec3(0.74,0.40,0.43),lip*0.9);
        col*=1.0-0.12*border;
        float ml=exp(-pow(ly/0.08,2.0))*smoothstep(0.026,0.016,abs(p.x))*smoothstep(0.075,0.095,p.z);
-       col*=1.0-0.55*ml;
-       gLip=lip;
+       col*=1.0-0.70*ml;
+       // lip creases, waterline and tear duct, nostrils
+       col*=1.0-0.10*lip*smoothstep(0.55,0.95,0.5+0.5*sin(p.x*1500.0+vnoise(p*300.0)*2.0))*smoothstep(0.0,0.7,abs(ly));
+       float water=exp(-pow((rho-0.93)/0.10,2.0))*step(q.y,0.0005)*face;
+       col=mix(col,vec3(0.78,0.36,0.34),water*0.55);
+       float duct=exp(-dot(vec2((q.x-0.0158)/0.0030,(q.y+0.0004)/0.0026),vec2((q.x-0.0158)/0.0030,(q.y+0.0004)/0.0026)))*face;
+       col=mix(col,vec3(0.80,0.40,0.38),duct*0.8);
+       float nos=0.0;
+       for(int k=0;k<2;k++){float sx=k==0?0.0085:-0.0085;vec2 d=vec2((p.x-sx)/0.0042,(p.y-0.1715)/0.0030);nos=max(nos,exp(-dot(d,d))*smoothstep(0.10,0.18,p.z)*step(vRestN.y,-0.1));}
+       col*=1.0-0.82*nos;
+       gLip=lip+water*0.8;
        // dark stubble-free pores: tiny darker specks
        col*=1.0-0.05*step(0.82,vnoise(p*900.0));
        gOil=exp(-pow((p.x)/0.030,2.0))*smoothstep(uEyeR.y+0.01,uEyeR.y+0.07,p.y)*face*0.6+exp(-pow(length(vec2(p.x/0.016,(p.y-0.166)/0.022)),2.0))*face+cheek*0.25;
@@ -463,11 +472,25 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
 
   // ---- shirt
   const shirtMat=new THREE.MeshPhysicalMaterial({color:0x27313f,roughness:0.88,metalness:0,sheen:0.6,sheenRoughness:0.5,sheenColor:new THREE.Color(0x6d7b90),envMapIntensity:0.35,transparent:true});
-  shirtMat.onBeforeCompile=s=>{s.fragmentShader='varying vec3 vP;\n'+s.fragmentShader;
-    s.vertexShader='varying vec3 vP;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvP=position;');
-    s.fragmentShader=s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
-      {float w=0.5+0.5*sin(vP.x*1500.0)*sin(vP.y*1500.0+vP.z*300.0);diffuseColor.rgb*=0.93+0.07*w;}`).replace('#include <dithering_fragment>','gl_FragColor.a*=smoothstep(-0.47,-0.40,vP.y);\n#include <dithering_fragment>');};
-  const shirt=new THREE.SkinnedMesh(mkGeo('sVerts','sFaces','sSkinIdx','sSkinW'),shirtMat);
+  shirtMat.onBeforeCompile=s=>{
+    s.vertexShader='attribute float trim;attribute float scav;varying float vTrim;varying float vScav;varying vec3 vP;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvP=position;vTrim=trim*0.04;vScav=scav;');
+    s.fragmentShader='varying float vTrim;varying float vScav;varying vec3 vP;\nfloat hs(vec3 p){p=fract(p*0.3183099+0.1);p*=17.0;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}\nfloat vn(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);return mix(mix(mix(hs(i),hs(i+vec3(1,0,0)),f.x),mix(hs(i+vec3(0,1,0)),hs(i+vec3(1,1,0)),f.x),f.y),mix(mix(hs(i+vec3(0,0,1)),hs(i+vec3(1,0,1)),f.x),mix(hs(i+vec3(0,1,1)),hs(i+vec3(1,1,1)),f.x),f.y),f.z);}\n'+s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+      {vec3 c=diffuseColor.rgb;
+       // knit: fine weave plus soft folds
+       float w=0.5+0.5*sin(vP.x*1700.0)*sin(vP.y*1700.0+vP.z*320.0);
+       float folds=vn(vP*vec3(34.0,13.0,34.0))*0.6+vn(vP*vec3(90.0,34.0,90.0))*0.4;
+       c*=(0.92+0.08*w)*(0.88+0.24*folds);
+       // ribbed collar and cuffs
+       float band=1.0-smoothstep(0.011,0.014,vTrim);
+       float rib=0.5+0.5*sin(vTrim*1300.0);
+       c=mix(c,c*(0.78+0.3*rib),band);
+       float seam=exp(-pow((vTrim-0.0135)/0.0007,2.0));
+       c*=1.0-0.35*seam;
+       // armpits and folds read darker
+       c*=1.0-0.55*clamp(vScav*1.3,0.0,1.0);
+       diffuseColor.rgb=c;}`).replace('#include <dithering_fragment>','gl_FragColor.a*=smoothstep(-0.47,-0.40,vP.y);\n#include <dithering_fragment>');};
+  const sGeo=mkGeo('sVerts','sFaces','sSkinIdx','sSkinW');sGeo.setAttribute('trim',new THREE.BufferAttribute(Float32Array.from(BODY.sTrim,x=>x/255),1));sGeo.setAttribute('scav',new THREE.BufferAttribute(Float32Array.from(BODY.sCav,x=>x/255),1));
+  const shirt=new THREE.SkinnedMesh(sGeo,shirtMat);
   shirt.frustumCulled=false;shirt.renderOrder=1;shirt.castShadow=shirt.receiveShadow=true;grp.add(shirt);shirt.bind(skeleton,new M4());
 
   // ---- rigid head parts
@@ -518,7 +541,20 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
   const eyeGeo=(()=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(f3('eVerts'),3));
     g.setAttribute('uv',new THREE.BufferAttribute(Float32Array.from(BODY.eUv,x=>x/65535),2));g.setIndex(new THREE.BufferAttribute(u16('eFaces'),1));g.computeVertexNormals();return g;})();
   const tex=new THREE.TextureLoader().load('data:image/png;base64,'+BODY.eyePng);tex.encoding=THREE.sRGBEncoding;tex.flipY=true;
-  const eyeMat=new THREE.MeshPhysicalMaterial({map:tex,roughness:0.12,metalness:0,clearcoat:1,clearcoatRoughness:0.05,envMapIntensity:0.9,alphaTest:0.5});
+  const eyeMat=new THREE.MeshPhysicalMaterial({map:tex,roughness:0.14,metalness:0,clearcoat:1,clearcoatRoughness:0.03,envMapIntensity:1.0,alphaTest:0.5});
+  eyeMat.onBeforeCompile=s=>{s.vertexShader='varying vec3 vL;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvL=position;');
+    s.fragmentShader='varying vec3 vL;\n'+s.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+      {vec3 c=diffuseColor.rgb;float mx=max(c.r,max(c.g,c.b)),mn=min(c.r,min(c.g,c.b));float sat=(mx-mn)/max(mx,1e-3);
+       float scl=1.0-smoothstep(0.18,0.34,sat);
+       float R=0.0125;float r=length(vL)/R;
+       vec3 ivory=c*vec3(0.95,0.91,0.86);
+       float inner=smoothstep(0.30,0.95,abs(vL.x)/R+0.0);
+       ivory=mix(ivory,ivory*vec3(0.96,0.80,0.76),inner*0.7);
+       float top=smoothstep(-0.2,0.85,vL.y/R);
+       ivory*=1.0-0.50*top;
+       c=mix(c,ivory,scl);
+       float irisSide=1.0-scl;c*=1.0-0.35*irisSide*smoothstep(0.1,0.9,vL.y/R)*0.7;
+       diffuseColor.rgb=c;}`);};
   const eyes=[0,1].map(()=>{const m=rigid(eyeGeo,eyeMat);m.castShadow=false;return m;});
   const eyeC=[new V3(...BODY.eyeR),new V3(...BODY.eyeL)];
 
