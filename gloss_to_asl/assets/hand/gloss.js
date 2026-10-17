@@ -39,7 +39,7 @@
     const all = words(text), single = all.length === 1;
     if (nlp && (nlp.length !== all.length || nlp.some((x, i) => x.word !== all[i]))) nlp = null;
     const isNoun = x => x.nlp ? x.nlp.pos === 'NOUN' || x.nlp.pos === 'PROPN' : nouns.has(x.g);
-    let wi = 0;
+    let wi = 0, si = 0;
     for (const sentence of text.split(/(?<=[.!?;])\s*/).filter(s => words(s).length)) {
       const question = /\?\s*$/.test(sentence.trim());
       const w = words(sentence), noPast = question || WH.has(words(sentence)[0]) || AUX.has(words(sentence)[0]), info = nlp ? nlp.slice(wi, wi + w.length) : [];
@@ -125,9 +125,13 @@
         const n = t[wh].g === 'HOW' && QUANT.has(W(wh + 1)) ? 2 : 1;
         t.push(...t.splice(wh, n));
       }
+      const hasWh = t.some(x => WH.has(x.g));
+      const mark = hasWh && (question || startsWh || shaped) ? 'wh'
+        : t.length > 1 && (question || AUX.has(w[0]) && !hasWh) ? 'yn' : null;
+      const sent = si++;
       for (const x of t) {
-        if (x.kind === 'spell') { out.items.push({spell: x.word}); out.spelled.push(x.word); continue; }
-        out.items.push({gloss: x.g, word: x.word, rep: !!x.rep});
+        if (x.kind === 'spell') { out.items.push({spell: x.word, mark, sent}); out.spelled.push(x.word); continue; }
+        out.items.push({gloss: x.g, word: x.word, rep: !!x.rep, mark, sent, neg: NEG.has(x.g) || x.g === 'NO', yes: x.g === 'YES'});
         if (x.added) out.added.push(x.g);
       }
     }

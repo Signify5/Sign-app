@@ -13,7 +13,7 @@ import numpy as np
 from gloss_to_asl.aliases import DROP, resolve_aliases
 from gloss_to_asl.clips import ClipIndex, ClipIndexError
 from gloss_to_asl.fingerspell import ALPHABET, CHANGE_S, DOUBLE_SHIFT_M, HOLD_S, PATH_S, letter_frames, letter_pose
-from gloss_to_asl.hand3d import HANDS, MIRROR, TEMPLATE_PATH, Pose, Rig, Tracks, _blob, pack_rig, rest_pose, sign_track
+from gloss_to_asl.hand3d import HANDS, MIRROR, TEMPLATE_PATH, Pose, Rig, Tracks, _blob, body_json, pack_rig, rest_pose, sign_track
 from gloss_to_asl.motion import FPS, TRANSITION_S, Motion, MotionError
 
 LIB_FPS = 15.0
@@ -131,6 +131,7 @@ def write_library(lib: dict, out: Path, rig: Rig, title: str = "ASL signs and al
     html = (html.replace("/*TITLE*/", title)
                 .replace("/*RIG*/", json.dumps(pack_rig(rig), separators=(",", ":")))
                 .replace("/*TIMELINE*/", "null")
+                .replace("/*BODY*/", body_json())
                 .replace("/*GLOSS*/", GLOSS_JS.read_text(encoding="utf-8"))
                 .replace("/*GLOSSAPI*/", json.dumps(os.environ.get("GLOSS_API", "").rstrip("/")))
                 .replace("/*LIBRARY*/", json.dumps(lib, separators=(",", ":"))))

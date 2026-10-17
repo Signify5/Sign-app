@@ -82,14 +82,18 @@ p{margin:0}
 #tones{position:absolute;top:12px;right:12px;display:flex;gap:8px}
 #tones .tone{width:28px;height:28px;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.25)}
 #tones .tone:focus-visible,#replay:focus-visible,#reload:focus-visible{outline-color:var(--dot)}
+#zoom{position:absolute;right:12px;top:52px;height:36px;padding:0 12px;background:transparent;border:1px solid var(--plate-line);border-radius:4px;color:var(--plate-ink);font-size:13px}
+#zoom:hover{border-color:var(--plate-ink)}
+#zoom[aria-pressed=true]{background:var(--dot);color:var(--plate);border-color:var(--dot)}
+#zoom:focus-visible{outline:2px solid var(--dot);outline-offset:2px}
 #replay{position:absolute;right:12px;bottom:12px;height:40px;padding:0 16px;background:transparent;border:1px solid var(--plate-line);border-radius:4px;color:var(--plate-ink);font-size:14px}
 #replay:hover{border-color:var(--plate-ink)}
-.app:not([data-state="ready"]) :is(.views,#tones,#replay){visibility:hidden}
+.app:not([data-state="ready"]) :is(.views,#tones,#replay,#zoom){visibility:hidden}
 
 #loader{position:absolute;left:24px;right:24px;top:50%;transform:translateY(-50%);max-width:380px;color:var(--plate-ink);transition:opacity .2s ease-out}
 @media (min-width:960px){#loader{left:48px}}
 #loader[hidden]{display:none}
-@media (max-width:959px){#tones{top:auto;bottom:12px;left:12px;right:auto}}
+@media (max-width:959px){#tones{top:auto;bottom:12px;left:12px;right:auto}#zoom{top:12px}}
 #loader h2{margin:0 0 14px;font-size:20px;font-weight:500;color:#fff}
 .track{height:3px;background:var(--plate-line);border-radius:2px;overflow:hidden}
 #ldBar{display:block;height:100%;background:var(--dot);transform-origin:left;transform:scaleX(.03);transition:transform .4s ease-out}
@@ -106,8 +110,8 @@ p{margin:0}
 <div class="app" id="app" data-state="loading">
   <header class="brand"><b>Signify</b></header>
 
-  <section id="view" aria-label="Signing hands">
-    <div id="stage" role="img" aria-label="3D hands signing the ASL words"></div>
+  <section id="view" aria-label="Signer">
+    <div id="stage" role="img" aria-label="3D signer signing the ASL words"></div>
     <canvas id="joints" aria-hidden="true"></canvas>
     <fieldset class="views"><legend>Show the hands as</legend>
       <label><input type="radio" name="view" value="hand" checked><span>Hand</span></label>
@@ -115,6 +119,7 @@ p{margin:0}
       <label><input type="radio" name="view" value="both"><span>Both</span></label>
     </fieldset>
     <span id="tones" role="group" aria-label="Skin tone"></span>
+    <button id="zoom" type="button" aria-pressed="false">Hands close-up</button>
     <button id="replay" type="button">Replay</button>
     <div id="loader" role="status" aria-live="polite">
       <h2 id="ldTitle">Loading the hands</h2>
@@ -142,7 +147,7 @@ p{margin:0}
 
 
   <dl class="credits" aria-label="Credits">
-    <dt>hands</dt><dd><a href="https://www.makehumancommunity.org/" target="_blank" rel="noopener">MakeHuman</a> base mesh and skeleton, CC0.</dd>
+    <dt>body</dt><dd><a href="https://www.makehumancommunity.org/" target="_blank" rel="noopener">MakeHuman</a> base mesh, skeleton and eyes, CC0. Shirt, hair and eyebrows are generated.</dd>
     <dt>motion</dt><dd>Tracked from <a href="https://github.com/dxli94/WLASL" target="_blank" rel="noopener">WLASL</a> sign videos (Li et al., WACV 2020), used for academic study.<span id="abcCredit" hidden> Letters are authored handshapes.</span></dd>
     <dt>licenses</dt><dd>Code is MIT. <a href="https://github.com/Signify5/Sign-app/blob/main/NOTICE.md" target="_blank" rel="noopener">Full credits and terms</a>.</dd>
     <dt>caution</dt><dd>Machine-translated. Not checked by a Deaf signer. Sentences you say or type are saved to help improve the translator.</dd>
@@ -258,7 +263,7 @@ function draw(){const dpr=Math.min(devicePixelRatio||1,2),w=cv.clientWidth,hgt=c
     EDGES.forEach(([a,c])=>{ctx.moveTo(q[a][0],q[a][1]);ctx.lineTo(q[c][0],q[c][1]);});ctx.stroke();
     ctx.fillStyle='#F2C14E';ctx.strokeStyle='#0F2A5C';ctx.lineWidth=1.5;
     q.forEach((p,i)=>{ctx.beginPath();ctx.arc(p[0],p[1],i?3.5:5,0,Math.PI*2);ctx.fill();ctx.stroke();});});}
-function setMode(m){mode=m;if(P)P.hands.forEach(h=>h.g.visible=m!=='joints');}
+function setMode(m){mode=m;if(P){P.hands.forEach(h=>h.g.visible=m!=='joints');if(P.avatar)P.avatar.group.visible=m!=='joints';}}
 document.querySelectorAll('input[name=view]').forEach(r=>r.onchange=()=>setMode(r.value));
 (function wait(){if(!window.player)return requestAnimationFrame(wait);
   P=window.player;landmarks(P);P.scene.onBeforeRender=draw;setMode(document.querySelector('input[name=view]:checked').value);})();
