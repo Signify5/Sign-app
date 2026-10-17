@@ -118,6 +118,27 @@ def cavity(P, T):
     return np.clip(out, 0, 1)
 
 
+def drape(S, P, N, off, T, Vdm, iters=14):
+    """Smooth the shirt over the belly and chest, but never let it sink into the skin: it fills pits like the navel."""
+    n = len(S)
+    nbr = [set() for _ in range(n)]
+    for a, b, c in T:
+        nbr[a] |= {b, c}
+        nbr[b] |= {a, c}
+        nbr[c] |= {a, b}
+    w = smoothstep(1.6, 1.1, np.abs(Vdm[:, 0])) * smoothstep(5.4, 4.6, Vdm[:, 1])
+    idx = [i for i in np.flatnonzero(w > 0) if nbr[i]]
+    S = S.copy()
+    for _ in range(iters):
+        avg = S.copy()
+        for i in idx:
+            avg[i] = S[list(nbr[i])].mean(0)
+        S = S + (avg - S) * (0.6 * w)[:, None]
+        d = ((S - P) * N).sum(1)
+        S = S + N * np.maximum(off - d, 0)[:, None]
+    return S
+
+
 def boundary_edges(T):
     seen = {}
     for a, b, c in T:
@@ -232,7 +253,7 @@ def build():
     shirt_t = shirt_v[T0].all(1)
     Ts = T0[shirt_t]
     off = np.where(np.abs(V[:, 0]) > 1.7, 0.0032, 0.0048)
-    sh = P + Nrm * off[:, None]
+    sh = drape(P + Nrm * off[:, None], P, Nrm, off, Ts, V)
     bnd = boundary_edges(Ts)
     strips = []
     for a, b in bnd:
@@ -240,6 +261,13 @@ def build():
     Pall = np.concatenate([sh, P])
     Ts_all = np.concatenate([Ts, np.array(strips, int).reshape(-1, 3)]) if strips else Ts
     Ps_, Ts_, Ws_ = compact(Pall, Ts_all, np.concatenate([Wd, Wd]))
+    from scipy.spatial import cKDTree
+    # collar and cuff bands: distance to the neck / wrist boundary only (not the hem)
+    bound_v = np.unique(np.array(bnd).ravel()) if bnd else np.array([], int)
+    bound_v = bound_v[(V[bound_v, 1] > 2.0)]
+    trim = cKDTree(Pall[bound_v]).query(Ps_)[0] if len(bound_v) else np.full(len(Ps_), 0.05)
+    trim_q = np.round(np.clip(trim / 0.04, 0, 1) * 255).astype("u1")
+    shirt_cav = cavity(Ps_, Ts_)
     print("shirt:", len(Ps_), "verts,", len(Ts_), "tris")
 
     # ---- hair: smooth the head surface first, then cut it at the hairline so the edge is not jagged
@@ -270,7 +298,7 @@ def build():
     # rest orientation of the hand in the body frame: Vn = R0 (P - wrist)
     brows = build_brows(B, T0, P, Nrm)
 
-    X = np.concatenate([Pb, Wb, shirt_v[used_idx][:, None].astype(float)], 1)
+    X = np.concatenate([Pb, Wb, (shirt_v | (V[:, 1] < HEM_DM + 0.4))[used_idx][:, None].astype(float)], 1)
     X, Tb = loop_subdivide(X, Tb, 1)
     Pb, Wb, cover = X[:, :3], X[:, 3:3 + len(BONES)], X[:, -1]
     ao = cavity(Pb, Tb)
@@ -283,7 +311,8 @@ def build():
                ("bCover", np.round(cover * 255).astype("u1")), ("bAo", np.round(ao * 255).astype("u1"))]
     si, sw = top4(Ws_)
     arrays += [("sVerts", np.round(Ps_ * POS_Q).astype("<i2")), ("sFaces", Ts_.astype("<u2")),
-               ("sSkinIdx", si.astype("u1")), ("sSkinW", np.round(sw * 255).astype("u1"))]
+               ("sSkinIdx", si.astype("u1")), ("sSkinW", np.round(sw * 255).astype("u1")),
+               ("sTrim", trim_q), ("sCav", np.round(shirt_cav * 255).astype("u1"))]
     arrays += [("hVerts", np.round(Hp * POS_Q).astype("<i2")), ("hFaces", Th.astype("<u2")), ("hHl", hl)]
     arrays += [("gVerts", np.round(hair_strands[0] * POS_Q).astype("<i2")), ("gUv", np.round(hair_strands[1] * 65535).astype("<u2")),
                ("gFaces", hair_strands[2].astype("<u2"))]
@@ -514,8 +543,10 @@ def build_brows(B, T0, P, Nrm):
 
     # brow hairs: laid along the brow line, rising on the inner half and drooping at the tail
     items = []
-    for _ in range(320):
+    for _ in range(300):
         tk = rng.uniform(0, 1) ** 1.1
+        if tk < 0.08 and rng.uniform() < 0.6:
+            continue
         x, y, hw = cs(tk)
         x1, y1, _ = cs(min(1, tk + 0.01))
         x0, y0, _ = cs(max(0, tk - 0.01))
@@ -529,7 +560,7 @@ def build_brows(B, T0, P, Nrm):
         if r is None:
             continue
         z, nn = r
-        ang = np.radians(np.interp(tk, [0, 0.4, 1], [62, 20, -28]) + rng.normal(0, 9))
+        ang = np.radians(np.interp(tk, [0, 0.4, 1], [72, 24, -34]) + rng.normal(0, 9))
         flat = np.array([tg[0], tg[1], 0.0])
         flat -= nn * (flat @ nn)
         flat /= np.linalg.norm(flat)
@@ -539,13 +570,13 @@ def build_brows(B, T0, P, Nrm):
         d = np.cos(ang) * flat + np.sin(ang) * upv
         d -= nn * (d @ nn) * 0.7
         d /= np.linalg.norm(d)
-        items.append((np.array([px, py, z]) + nn * 0.0006, d, nn, rng.uniform(0.0034, 0.0052), 0.00062, 0.0007, rng.uniform()))
+        items.append((np.array([px, py, z]) + nn * 0.0006, d, nn, rng.uniform(0.0030, 0.0050) * (0.6 + 0.6 * np.sin(np.pi * min(max(tk, 0.05), 0.98))), 0.00048, 0.0007, rng.uniform()))
     kv, kuv, kf = strand_mesh(items)
     print("brow hairs:", len(items))
 
     # eyelashes along the lid margin (the same ellipse the skin shader darkens)
     lash = []
-    for upper, count in ((True, 34), (False, 16)):
+    for upper, count in ((True, 34),):
         for i in range(count):
             th = (np.linspace(0.10, 0.88, count)[i] if upper else np.linspace(-0.12, -0.78, count)[i]) * np.pi
             th += rng.normal(0, 0.012)
@@ -561,7 +592,7 @@ def build_brows(B, T0, P, Nrm):
             d += np.array([0, 0.35 if upper else -0.1, 0])
             d /= np.linalg.norm(d)
             outer = 1 - abs(np.cos(th)) * 0.0 - (np.cos(th) + 1) / 2 * 0.45
-            length = (0.0030 + 0.0030 * np.sin(th if upper else -th) * outer) * (1 if upper else 0.55) * rng.uniform(0.85, 1.15)
+            length = (0.0030 + 0.0030 * np.sin(th if upper else -th) * outer) * (1 if upper else 0.4) * rng.uniform(0.85, 1.15)
             lash.append((np.array([px, py, z]) + nn * 0.0004, d, nn, length, 0.00095, 0.0012 if upper else 0.0003, rng.uniform()))
     lv, luv, lf = strand_mesh(lash)
     print("lashes:", len(lash))
