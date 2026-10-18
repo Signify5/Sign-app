@@ -3,7 +3,8 @@
 Inputs (CC0, from https://github.com/makehumancommunity/makehuman, makehuman/data) go in assets/makehuman/:
   base.obj, default.mhskel, default_weights.mhw, eyes/high-poly/high-poly.{obj,mhclo}, eyes/materials/brown_eye.png
 Output: assets/hand/makehuman_body.json
-Everything except the base mesh and the eye model (shirt, hair, brows, skin and eye shading) is generated here.
+  hair/culturalibre_hair_05.mhclo, hair/hair_05.obj, hair/hair_05.png (CC0, MakeHuman Hair 01 pack, by culturalibre)
+Everything except the base mesh, eye model and hair model (shirt, brows, skin and eye shading) is generated here.
 """
 import base64
 import io
@@ -319,7 +320,7 @@ def build():
     Th = Th[(dh > -0.06)[Th].any(1)]
     Hp, Th, dh = compact(Hp, Th, dh)
     hl = np.round(np.clip(dh, -1.2, 1.2) * 100).astype("i1")
-    hair_strands = build_hair_strands(Hp, Th, dh, B.s)
+    hair_mesh = build_hair_mesh(B)
     print("hair:", len(Hp), "verts,", len(Th), "tris")
 
     eyes = build_eyes(B)
@@ -345,8 +346,7 @@ def build():
                ("sSkinIdx", si.astype("u1")), ("sSkinW", np.round(sw * 255).astype("u1")),
                ("sTrim", trim_q), ("sCav", np.round(shirt_cav * 255).astype("u1"))]
     arrays += [("hVerts", np.round(Hp * POS_Q).astype("<i2")), ("hFaces", Th.astype("<u2")), ("hHl", hl)]
-    arrays += [("gVerts", np.round(hair_strands[0] * POS_Q).astype("<i2")), ("gUv", np.round(hair_strands[1] * 65535).astype("<u2")),
-               ("gFaces", hair_strands[2].astype("<u2"))]
+    arrays += list(hair_mesh["arrays"].items())
     for k, v in build_mouth(B).items():
         arrays.append((k, v))
     for k, v in eyes["arrays"].items():
@@ -361,7 +361,7 @@ def build():
         "R0": h.R0.tolist(), "wristHand": B.scene(h.wr).tolist(),
         "neckPivot": J("neck01").tolist(), "headPivot": J("head").tolist(),
         "eyeR": eye_c.tolist(), "eyeL": (eye_c * [-1, 1, 1]).tolist(),
-        "eyeRadius": eyes["radius"], "eyePng": eyes["png"],
+        "eyeRadius": eyes["radius"], "eyePng": eyes["png"], "hairPng": hair_mesh["png"],
         "jawPivot": J("jaw").tolist(), "clavicle": J("clavicle.R").tolist(),
         "nodes": B.nodes, "mouthY": float(B.scene([0, 6.605, 0])[1]),
         "browY": brows["meta"],
@@ -472,38 +472,43 @@ def strand_mesh(items, nseg=3):
 
 
 
-def build_hair_strands(Hp, Th, dh, s_m, count=3800):
-    """Short cropped hair: strands that follow the skull from the crown, stopping above the hairline."""
-    rng = np.random.default_rng(11)
-    Hn = vertex_normals(Hp, Th)
-    area = np.linalg.norm(np.cross(Hp[Th[:, 1]] - Hp[Th[:, 0]], Hp[Th[:, 2]] - Hp[Th[:, 0]]), axis=1)
-    ok = dh[Th].mean(1) > 0.04
-    w = np.where(ok, area, 0)
-    tri = rng.choice(len(Th), count, p=w / w.sum())
-    b = rng.dirichlet([1, 1, 1], count)
-    idx = Th[tri]
-    pos = (Hp[idx] * b[..., None]).sum(1)
-    nrm = (Hn[idx] * b[..., None]).sum(1)
-    nrm /= np.linalg.norm(nrm, axis=1, keepdims=True)
-    drop = (dh[idx] * b).sum(1) * s_m
-    crown = Hp[np.argmax(Hp[:, 1])]
-    g = np.array([0, -1.0, 0])
-    items = []
-    for p0, n0, dr in zip(pos, nrm, drop):
-        v = p0 - crown
-        t = v - n0 * (v @ n0)
-        t /= np.linalg.norm(t) + 1e-9
-        gt = g - n0 * (g @ n0)
-        gt /= np.linalg.norm(gt) + 1e-9
-        d = 0.55 * t + 0.6 * gt + rng.normal(0, 0.12, 3)
-        d -= n0 * (d @ n0) * 0.9
-        d /= np.linalg.norm(d)
-        L = rng.uniform(0.014, 0.030)
-        L = min(L, max(0.004, 1.1 * dr / max(0.25, -d[1])))
-        items.append((p0 - n0 * 0.0006, d, n0, L, rng.uniform(0.0010, 0.0016), rng.uniform(0.0008, 0.0035), rng.uniform()))
-    V, UV, F = strand_mesh(items, nseg=3)
-    print("hair strands:", len(items), "->", len(V), "verts")
-    return V, UV, F
+def build_hair_mesh(B):
+    d = MH / "hair"
+    scales, rows = parse_mhclo(d / "culturalibre_hair_05.mhclo")
+    V = B.Vdm
+    sc = {k: abs(V[a, "xyz".index(k)] - V[b, "xyz".index(k)]) / den for k, (a, b, den) in scales.items()}
+    verts = (V[rows[:, 0].astype(int)] * rows[:, 3:4] + V[rows[:, 1].astype(int)] * rows[:, 4:5]
+             + V[rows[:, 2].astype(int)] * rows[:, 5:6] + rows[:, 6:9] * [sc["x"], sc["y"], sc["z"]])
+    F, uvs = [], []
+    for l in open(d / "hair_05.obj", encoding="utf-8"):
+        if l.startswith("vt "):
+            uvs.append([float(x) for x in l.split()[1:3]])
+        elif l.startswith("f "):
+            F.append([[int(x) - 1 for x in t.split("/")[:2]] for t in l.split()[1:]])
+    uvs = np.array(uvs)
+    key, vpos, vuv, tris = {}, [], [], []
+    for f in F:
+        ids = []
+        for vi, ti in f:
+            k = (vi, ti)
+            if k not in key:
+                key[k] = len(vpos)
+                vpos.append(verts[vi])
+                vuv.append(uvs[ti])
+            ids.append(key[k])
+        for a in range(1, len(ids) - 1):
+            tris.append([ids[0], ids[a], ids[a + 1]])
+    vpos = B.scene(np.array(vpos))
+    vuv = np.array(vuv)
+    img = Image.open(d / "hair_05.png").convert("RGBA").resize((512, 512), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, "PNG", optimize=True)
+    print("hair mesh:", len(vpos), "verts,", len(tris), "tris")
+    return {
+        "arrays": {"qVerts": np.round(vpos * POS_Q).astype("<i2"), "qUv": np.round(vuv * 65535).astype("<u2"),
+                   "qFaces": np.array(tris).astype("<u2")},
+        "png": base64.b64encode(buf.getvalue()).decode(),
+    }
 
 
 def superquad(a, b, c, e1, e2, nu=10, nv=8):
