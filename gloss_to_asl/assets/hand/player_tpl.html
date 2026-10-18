@@ -229,6 +229,22 @@ function makeSkin(u){
        float lines=clamp(life+head+heart,0.0,1.0)*inPalm*smoothstep(0.045,0.03,length(vec2(u,v)));
        h-=lines*0.00017;crease+=lines;
        h+=(vnoise(p*2600.0)-0.5)*0.000018+(vnoise(p*700.0)-0.5)*0.000025;
+       float tendK=0.0,veinK=0.0,hairK=0.0,dorsK=0.0;
+       {float dors=1.0-smoothstep(0.1,0.6,palmar);
+        // tendons running from the wrist to each knuckle on the back of the hand
+        for(int f=0;f<4;f++){vec3 A=uJ[f*4];vec3 A2=A-uPalmN*dot(A,uPalmN);float L=length(A2);vec3 dir=A2/L;
+          vec3 pp=p-uPalmN*dot(p,uPalmN);float t=dot(pp,dir);float dd=length(pp-dir*t);
+          float prof=smoothstep(0.014,0.035,t)*(1.0-smoothstep(L*0.80,L*0.97,t));
+          float tend=exp(-pow(dd/0.0026,2.0))*prof*dors;h+=tend*0.00009;tendK+=tend;}
+        // veins: thin bluish ridges between wrist and knuckles
+        float vu=dot(p-uPalmC,uPalmU),vv=dot(p-uPalmC,uPalmV);
+        float vn=vnoise(vec3(vu*150.0+vv*55.0,vv*70.0-vu*20.0,3.0));
+        float vein=smoothstep(0.455,0.495,vn)*smoothstep(0.545,0.505,vn);
+        float vmask=dors*smoothstep(-0.045,-0.015,vu)*(1.0-smoothstep(0.02,0.055,vu))*smoothstep(0.045,0.02,abs(vv));
+        veinK=vein*vmask;h+=veinK*0.00004;
+        // fine hair on the back of the hand and fingers, and pores
+        hairK=step(0.90,vnoise(p*3600.0))*dors;dorsK=dors;
+        h+=(vnoise(p*6200.0)-0.5)*0.000014;}
        gH=h;
        vec3 base=diffuseColor.rgb;
        vec3 col=base*mix(vec3(0.80,0.74,0.70),vec3(1.06,1.0,0.99),palmar);
@@ -237,6 +253,7 @@ function makeSkin(u){
        col*=1.0-clamp(crease,0.0,1.0)*0.18;
        col*=0.96+0.08*vnoise(p*120.0);
        col*=mix(vec3(1.0),vec3(1.0,0.93,0.92),0.4*vnoise(p*45.0+3.0));
+       col*=1.0+0.045*tendK;col*=mix(vec3(1.0),vec3(0.85,0.91,0.98),veinK*0.5);col*=1.0-0.07*hairK;
        diffuseColor.rgb=col;}`)
      .replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=clamp(roughnessFactor+gH*900.0,0.3,0.8);')
      .replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\nnormal=myPerturb(-vViewPosition,normal,vec2(dFdx(gH),dFdy(gH)),faceDirection);')
@@ -251,7 +268,7 @@ function makeSkin(u){
   };
   return m;
 }
-const nailMat=new THREE.MeshPhysicalMaterial({vertexColors:true,roughness:0.32,clearcoat:0.9,clearcoatRoughness:0.12,envMapIntensity:0.7});
+const nailMat=new THREE.MeshPhysicalMaterial({vertexColors:true,roughness:0.42,clearcoat:0.45,clearcoatRoughness:0.28,envMapIntensity:0.55});
 const FING=['index','middle','ring','pinky'];
 const CHAIN={};FING.forEach(f=>CHAIN[f]=[f+'-mc',f+'-mcp',f+'-pip',f+'-dip']);CHAIN.thumb=['thumb-cmc','thumb-mcp','thumb-ip'];
 const jp=n=>JP[JI[n]].clone();
@@ -292,7 +309,7 @@ function buildNails(){
     let E=0;for(const [a,l,u] of near){if(a>E&&Math.hypot(l,u)<0.012)E=a;}
     let lo=1,hi=-1;for(let l=-0.013;l<=0.013;l+=0.0002)if(surf(E*0.55,l)!==-1){lo=Math.min(lo,l);hi=Math.max(hi,l);}
     const hw=(hi-lo)/2,lc=(hi+lo)/2;
-    const nw=hw*0.78*wscale;const s0=E*0.28,s1=E-0.0028;
+    const nw=hw*0.66*wscale;const s0=E*0.28,s1=E-0.0028;
     const NS=22,NW=12;const vp=[],vc=[],ix=[],si=[],sw=[];
     const bed=new THREE.Color(0xc07c76),lun=new THREE.Color(0xd9b2aa),free=new THREE.Color(0xeadbd0);
     for(let a=0;a<=NS;a++){const s=a/NS;const t=s0+(s1-s0)*s;
@@ -306,7 +323,7 @@ function buildNails(){
         vp.push(p.x,p.y,p.z);
         let c=bed.clone();const lu=Math.max(0,1-Math.hypot(s/0.2,w/0.6));c.lerp(lun,Math.min(1,lu*1.2));
         if(s>0.93)c.lerp(free,Math.min(1,(s-0.93)/0.05));
-        c.multiplyScalar(1-Math.pow(Math.abs(w),4)*0.12);
+        c.multiplyScalar((1-Math.pow(Math.abs(w),4)*0.12)*(1-0.025*Math.sin(w*16+3)));
         vc.push(c.r,c.g,c.b);si.push(JI[dn],0,0,0);sw.push(1,0,0,0);}}
     for(let a=0;a<NS;a++)for(let b=0;b<NW;b++){const i0=a*(NW+1)+b,i1=i0+1,i2=i0+NW+1,i3=i2+1;ix.push(i0,i2,i1,i1,i2,i3);}
     const ng=new THREE.BufferGeometry();ng.setAttribute('position',new THREE.Float32BufferAttribute(vp,3));
@@ -477,6 +494,7 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
         float wrap=max(0.0,(ndl+0.45)/1.45)-max(ndl,0.0);
         vec3 Vv=normalize(vViewPosition);float fr=pow(1.0-clamp(dot(N,Vv),0.0,1.0),3.0);
         gl_FragColor.rgb+=diffuseColor.rgb*vec3(0.85,0.22,0.14)*(max(wrap,0.0)*0.30+fr*0.08);}
+       gl_FragColor.rgb*=mix(1.0,0.3,smoothstep(0.85,1.0,vCover));
        gl_FragColor.a*=smoothstep(-0.45,-0.39,vRestB.y);
        #include <dithering_fragment>`);
     s.uniforms.uMouthY={value:BODY.mouthY};
