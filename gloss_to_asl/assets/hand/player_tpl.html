@@ -358,7 +358,8 @@ AV=(function makeAvatar(){
   const piv=[El.clone().lerp(Wr,nodes[1]),El.clone().lerp(Wr,nodes[2])];
   const invR=[Tm(Sh).invert(),Tm(El).invert(),Tm(piv[0]).invert(),Tm(piv[1]).invert(),R0m.clone().multiply(Tm(Wr).invert())];
   const invL=invR.map(m=>Mx.clone().multiply(m).multiply(Mx));
-  const skeleton=new THREE.Skeleton(bones,[new M4(),Tm(Pn).invert(),Tm(Ph).invert(),...invR,...invL]);
+  const Pj=new V3(...BODY.jawPivot);
+  const skeleton=new THREE.Skeleton(bones,[new M4(),Tm(Pn).invert(),Tm(Ph).invert(),...invR,...invL,Tm(Pj).invert()]);
 
   const mkGeo=(v,f,si,sw)=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(f3(v),3));
     g.setIndex(new THREE.BufferAttribute(u16(f),1));
@@ -368,7 +369,7 @@ AV=(function makeAvatar(){
 
   // ---- face morphs (brows and lids), shared by skin and brow hair
   const FACE_GLSL=`
-uniform vec3 uEyeR;uniform vec2 uBrow;uniform float uBlink;
+uniform vec3 uEyeR;uniform vec2 uBrow;uniform float uBlink;uniform vec4 uMouth;uniform float uMouthY2;
 vec3 eyeMorph(vec3 p,float brow,float blink){
   vec3 r=p-uEyeR;vec3 d=vec3(0.0);
   float front=smoothstep(-0.035,-0.012,r.z);
@@ -385,12 +386,25 @@ vec3 eyeMorph(vec3 p,float brow,float blink){
   d.y+=blink*hl*(-0.0090*upper+0.0030*(1.0-upper));
   return d;
 }
+vec3 mouthMorph(vec3 p){
+  vec3 r=vec3(p.x,p.y-uMouthY2,p.z-0.145);vec3 d=vec3(0.0);
+  float front=smoothstep(0.06,0.10,p.z);
+  float w=exp(-dot(vec2(r.x/0.034,r.y/0.022),vec2(r.x/0.034,r.y/0.022)))*front;
+  float pucker=uMouth.x,wide=uMouth.y,puff=uMouth.z;
+  d.x+=-p.x*0.42*pucker*w+p.x*0.22*wide*w;
+  d.z+=0.0065*pucker*w;
+  d.y+=-r.y*0.12*pucker*w+0.0022*wide*w*clamp(abs(p.x)/0.03,0.0,1.0);
+  vec2 c=vec2((abs(p.x)-0.040)/0.020,(p.y-uMouthY2-0.012)/0.022);
+  float wc=exp(-dot(c,c))*front;
+  d+=vec3(sign(p.x)*0.7,0.0,0.5)*0.0075*puff*wc;
+  return d;
+}
 vec3 faceMorph(vec3 p){
-  vec3 d=eyeMorph(p,uBrow.x,uBlink);
+  vec3 d=eyeMorph(p,uBrow.x,uBlink)+mouthMorph(p);
   vec3 dm=eyeMorph(vec3(-p.x,p.y,p.z),uBrow.y,uBlink);
   return d+vec3(-dm.x,dm.y,dm.z);
 }`;
-  const U={uEyeR:{value:new V3(...BODY.eyeR)},uBrow:{value:new THREE.Vector2()},uBlink:{value:0},uKey:{value:new V3()},uRim:{value:new V3()}};
+  const U={uEyeR:{value:new V3(...BODY.eyeR)},uBrow:{value:new THREE.Vector2()},uBlink:{value:0},uMouth:{value:new THREE.Vector4()},uMouthY2:{value:BODY.mouthY},uKey:{value:new V3()},uRim:{value:new V3()}};
 
   // ---- skin
   const skin=new THREE.MeshPhysicalMaterial({color:0xe2b39d,roughness:0.52,metalness:0,sheen:0.25,sheenRoughness:0.6,sheenColor:new THREE.Color(0xffb0a0),clearcoat:0.05,clearcoatRoughness:0.6,envMapIntensity:0.5,transparent:true});
@@ -404,6 +418,7 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
             mix(mix(hsh(i+vec3(0,0,1)),hsh(i+vec3(1,0,1)),f.x),mix(hsh(i+vec3(0,1,1)),hsh(i+vec3(1,1,1)),f.x),f.y),f.z);}
 `+s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
       {vec3 p=vRestB;vec3 col=diffuseColor.rgb;
+       if(abs(p.x)<0.030&&abs(p.y-uMouthY)<0.011&&p.z<0.1540-22.0*p.x*p.x-0.0045)discard;
        vec3 pm=vec3(-abs(p.x),p.y,p.z);vec3 q=pm-uEyeR;
        float face=smoothstep(0.075,0.095,p.z)*smoothstep(0.08,0.2,p.y);
        col*=0.97+0.06*vnoise(p*260.0);
@@ -515,7 +530,7 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
   // brows: ribbons on the face (right one stored, left mirrored)
   const browGeo=(()=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(f3('rVerts'),3));
     g.setAttribute('uv',new THREE.BufferAttribute(Float32Array.from(BODY.rUv,x=>x/65535),2));g.setIndex(new THREE.BufferAttribute(u16('rFaces'),1));return g;})();
-  const browMat=()=>{const u={uEyeR:U.uEyeR,uBrow:{value:new THREE.Vector2()},uBlink:U.uBlink};
+  const browMat=()=>{const u={uEyeR:U.uEyeR,uBrow:{value:new THREE.Vector2()},uBlink:U.uBlink,uMouth:U.uMouth,uMouthY2:U.uMouthY2};
     const m=new THREE.MeshStandardMaterial({color:0x4a3322,roughness:0.8,transparent:true,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
     m.onBeforeCompile=s=>{Object.assign(s.uniforms,u);
       s.vertexShader=FACE_GLSL+'varying vec2 vUv2;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvUv2=uv;transformed+=eyeMorph(position,uBrow.x,uBlink);');
@@ -527,7 +542,7 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
   const brows=[0,1].map(i=>{const m=rigid(browGeo,browMat());m.renderOrder=3;return m;});
   const strandGeo=p=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(f3(p+'Verts'),3));
     g.setAttribute('uv',new THREE.BufferAttribute(Float32Array.from(BODY[p+'Uv'],x=>x/65535),2));g.setIndex(new THREE.BufferAttribute(u16(p+'Faces'),1));return g;};
-  const strandMat=(useBrow,dark,gain)=>{const u={uEyeR:U.uEyeR,uBrow:{value:new THREE.Vector2()},uBlink:U.uBlink};
+  const strandMat=(useBrow,dark,gain)=>{const u={uEyeR:U.uEyeR,uBrow:{value:new THREE.Vector2()},uBlink:U.uBlink,uMouth:U.uMouth,uMouthY2:U.uMouthY2};
     const m=new THREE.MeshStandardMaterial({color:dark,roughness:0.55,transparent:true,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-3,polygonOffsetUnits:-3});
     m.onBeforeCompile=s=>{Object.assign(s.uniforms,u);
       s.vertexShader=FACE_GLSL+'varying vec2 vUv2;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvUv2=uv;transformed+=eyeMorph(position,'+(useBrow?'uBrow.x':'0.0')+',uBlink);');
@@ -537,6 +552,14 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
   const browHair=[0,1].map(()=>{const m=rigid(strandGeo('k'),strandMat(true,0x2b1c12,1.0));m.renderOrder=4;return m;});
   const lashes=[0,1].map(()=>{const m=rigid(strandGeo('l'),strandMat(false,0x0c0806,1.0));m.renderOrder=4;return m;});
 
+  // mouth: upper teeth ride the head, lower teeth and tongue ride the jaw
+  const mouthGeo=p=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(f3(p+'Verts'),3));
+    g.setAttribute('color',new THREE.BufferAttribute(Float32Array.from(BODY[p+'Col'],x=>x/255),3));g.setIndex(new THREE.BufferAttribute(u16(p+'Faces'),1));g.computeVertexNormals();return g;};
+  const teethMat=new THREE.MeshPhysicalMaterial({vertexColors:true,roughness:0.28,metalness:0,clearcoat:0.5,clearcoatRoughness:0.2,envMapIntensity:0.8});
+  const tongueMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.45,metalness:0,envMapIntensity:0.5});
+  const cavMat=new THREE.MeshBasicMaterial({vertexColors:true});
+  const mUp=rigid(mouthGeo('mU'),teethMat),mLo=rigid(mouthGeo('mL'),teethMat),mTo=rigid(mouthGeo('mT'),tongueMat),mCa=rigid(mouthGeo('mC'),cavMat);
+  mCa.renderOrder=-1;
   // eyes (right stored, left mirrored); the CC0 MakeHuman iris texture
   const eyeGeo=(()=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(f3('eVerts'),3));
     g.setAttribute('uv',new THREE.BufferAttribute(Float32Array.from(BODY.eUv,x=>x/65535),2));g.setIndex(new THREE.BufferAttribute(u16('eFaces'),1));g.computeVertexNormals();return g;})();
@@ -584,7 +607,7 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
     out[4].multiplyMatrices(h.g.matrix,h.bones[0].matrix);
   }
   const ONE=new V3(1,1,1);
-  const headM=new M4(),neckW=new M4(),headW=new M4(),qHead=new Qt(),qNeck=new Qt(),qRel=new Qt(),idQ=new Qt(),Mn=new M4();
+  const jawM=new M4(),headM=new M4(),neckW=new M4(),headW=new M4(),qHead=new Qt(),qNeck=new Qt(),qRel=new Qt(),idQ=new Qt(),Mn=new M4();
   function pose(st){
     hands.forEach(h=>{arm(h,Wp);const base=h.mirror?8:3;
       for(let k=0;k<5;k++){const m=bones[base+k].matrix;m.copy(Wp[k]);if(h.mirror)m.premultiply(Mx).multiply(Mx);bones[base+k].matrixWorldNeedsUpdate=true;}});
@@ -595,32 +618,41 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
     neckW.copy(Mn).multiply(Tm(Pn));headW.copy(headM).multiply(Tm(Ph));
     bones[0].matrix.identity();bones[1].matrix.copy(neckW);bones[2].matrix.copy(headW);bones.slice(0,3).forEach(b=>b.matrixWorldNeedsUpdate=true);
     hair.matrix.copy(headM);hair.matrixWorldNeedsUpdate=true;hairStrands.matrix.copy(headM);hairStrands.matrixWorldNeedsUpdate=true;
+    jawM.copy(headM).multiply(Tm(Pj)).multiply(tmp.makeRotationX(st.jaw*0.32)).multiply(Tm(Pj).invert());
+    bones[13].matrix.copy(jawM).multiply(Tm(Pj));bones[13].matrixWorldNeedsUpdate=true;
+    mUp.matrix.copy(headM);mCa.matrix.copy(headM);mLo.matrix.copy(jawM);
+    mTo.matrix.copy(jawM).multiply(tmp.makeTranslation(0,st.tongue*0.0045,st.tongue*0.030));
+    [mUp,mCa,mLo,mTo].forEach(m=>{m.matrixWorldNeedsUpdate=true;m.visible=m===mCa||st.jaw>0.05;});
     [brows,browHair,lashes].forEach(set=>set.forEach((m,i)=>{m.matrix.copy(headM);if(i)m.matrix.multiply(Mx);m.matrixWorldNeedsUpdate=true;m.material.userData.u.uBrow.value.x=i?st.browL:st.browR;}));
     eu.set(st.gy,st.gx,0);tq.setFromEuler(eu);
     eyes.forEach((m,i)=>{m.matrix.copy(headM).multiply(Tm(eyeC[i])).multiply(tmp.makeRotationFromQuaternion(tq));if(i)m.matrix.multiply(Mx);m.matrixWorldNeedsUpdate=true;});
-    U.uBrow.value.set(st.browR,st.browL);U.uBlink.value=st.blink;
+    U.uBrow.value.set(st.browR,st.browL);U.uBlink.value=st.blink;U.uMouth.value.set(st.pucker,st.wide,st.puff,0);
   }
   return {group:grp,skin,pose,U,bones,hairMat,shirtMat};
 })();
 }
 
 // ---- grammar markers: brows, head, blinks and gaze
-const NM={sents:[],words:[],fps:30};
+const NM={sents:[],words:[],mouth:[],fps:30};
 const sstep=x=>{x=Math.min(1,Math.max(0,x));return x*x*(3-2*x);};
 function nmmPlan(tl){const S=new Map();
   tl.segments.forEach(([s,e,l,m])=>{if(!m||!m.mark)return;const o=S.get(m.sent);if(o)o.b=e;else S.set(m.sent,{a:s,b:e,mark:m.mark});});
   NM.sents=[...S.values()];NM.fps=tl.fps||30;
   NM.words=tl.segments.filter(x=>x[3]&&(x[3].neg||x[3].yes)).map(x=>({a:x[0],b:x[1],neg:x[3].neg,yes:x[3].yes}));
+  const MOUTH={BIG:'cha',LARGE:'cha',TALL:'cha',MANY:'cha',MUCH:'cha',FAT:'puff',FULL:'puff',HEAVY:'puff',SMALL:'oo',THIN:'oo',SHORT:'oo',
+    CARELESS:'th',RECENT:'th',FINISH:'pah',DONE:'pah',WOW:'wow',AMAZING:'wow',SURPRISE:'wow',HAPPY:'smile',FUNNY:'smile',EXCITED:'smile',LOVE:'smile'};
+  NM.mouth=tl.segments.filter(x=>x[3]&&!x[3].spell).map(x=>{const l=String(x[2]).toUpperCase();
+    return {a:x[0],b:x[1],type:MOUTH[l]||'talk',syl:Math.min(4,Math.max(1,(l.match(/[AEIOUY]+/g)||['A']).length))};});
   NM.ends=tl.segments.length?[tl.segments[tl.segments.length-1][1]]:[];}
 const BL=[];{let r=7,tb=1.4;while(tb<1500){r=(r*1664525+1013904223)>>>0;tb+=1.8+3.4*r/4294967296;BL.push(tb);}}
 function blinkAt(c){let lo=0,hi=BL.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(BL[m]<=c)lo=m;else hi=m-1;}
   let v=0;for(const i of[lo,lo+1,lo-1]){if(BL[i]===undefined)continue;const d=c-BL[i];
     if(d>=0&&d<0.2)v=Math.max(v,d<0.06?d/0.06:1-sstep((d-0.06)/0.14));}
   return v;}
-let FREEZE=false;
+let FREEZE=false,FORCE=null;
 function faceState(t){
   const f=NM.fps||30,c=FREEZE?t/f:performance.now()/1000;
-  const st={browR:0,browL:0,blink:0,pitch:0,yaw:0,roll:0,gx:0,gy:0};
+  const st={browR:0,browL:0,blink:0,pitch:0,yaw:0,roll:0,gx:0,gy:0,jaw:0,pucker:0,wide:0,puff:0,tongue:0};
   let brow=0;
   NM.sents.forEach(s=>{const env=Math.min(sstep((t-(s.a-9))/9),1-sstep((t-s.b)/12));if(env<=0)return;
     if(s.mark==='yn'){brow+=env;st.pitch+=0.09*env;st.roll+=0.04*env;}
@@ -628,9 +660,22 @@ function faceState(t){
   NM.words.forEach(w=>{const x=(t-(w.a-2))/((w.b-w.a)+8);if(x<0||x>1)return;const env=Math.sin(Math.PI*x),ts=(t-w.a)/f;
     if(w.neg)st.yaw+=0.30*Math.sin(2*Math.PI*3.0*ts)*env;
     if(w.yes)st.pitch+=0.22*Math.sin(2*Math.PI*2.2*ts)*env;});
+  NM.mouth.forEach(m=>{const x=(t-m.a)/Math.max(1,m.b-m.a);if(x<-0.08||x>1.08)return;const env=Math.sin(Math.PI*Math.min(1,Math.max(0,(t-m.a+3)/(m.b-m.a+6))));
+    const pulse=Math.pow(Math.sin(Math.PI*((Math.min(1,Math.max(0,x))*m.syl)%1)),2);
+    const up=(k,v)=>{st[k]=Math.max(st[k],v);};
+    switch(m.type){
+      case'cha':up('jaw',0.42*env);up('wide',0.35*env);break;
+      case'puff':up('puff',env);break;
+      case'oo':up('pucker',0.9*env);up('jaw',0.08*env);break;
+      case'th':up('jaw',0.24*env);up('tongue',0.75*env);break;
+      case'pah':{const a=Math.min(1,Math.max(0,x/0.55)),b=Math.pow(Math.sin(Math.PI*Math.min(1,Math.max(0,(x-0.5)/0.5))),2);up('pucker',0.8*env*(1-b)*a);up('jaw',0.42*b);break;}
+      case'wow':up('jaw',0.5*env);break;
+      case'smile':up('wide',0.8*env);up('jaw',0.08*env);break;
+      default:up('jaw',0.13*env*pulse);}});
   st.pitch+=0.016*Math.sin(c*0.9)+0.010*Math.sin(c*2.3+1);st.yaw+=0.022*Math.sin(c*0.55+0.5)+0.010*Math.sin(c*1.7);st.roll+=0.014*Math.sin(c*0.7+2);
   brow=Math.max(-1,Math.min(1,brow+0.05*Math.sin(c*1.3)));st.browR=st.browL=brow;
   st.blink=blinkAt(c);
+  if(FORCE)Object.assign(st,FORCE);
   st.gx=-0.75*st.yaw+0.03*Math.sin(c*0.8)*Math.sin(c*0.37+1);st.gy=-0.75*st.pitch+0.02*Math.sin(c*0.6+2)*Math.sin(c*0.29);
   return st;}
 
@@ -731,7 +776,7 @@ if(LIB){
   const VOC=Object.keys(L.signs),PLURAL_SHIFT=0.04;
   const shifted=T=>T.map(x=>x&&x.map(p=>{const q=Float32Array.from(p);q[0]-=PLURAL_SHIFT;return q;}));
   function parse(text,nlp){const r=toGloss(text,L,nlp),items=[],skipped=[];
-    r.items.forEach(x=>{if(x.spell){const T=spellTracks(x.spell);if(T)items.push({label:x.spell,tracks:T,meta:{mark:x.mark,sent:x.sent}});else skipped.push(x.spell);return;}
+    r.items.forEach(x=>{if(x.spell){const T=spellTracks(x.spell);if(T)items.push({label:x.spell,tracks:T,meta:{mark:x.mark,sent:x.sent,spell:true}});else skipped.push(x.spell);return;}
       const T=signTracks(x.gloss),meta={mark:x.mark,sent:x.sent,neg:x.neg,yes:x.yes};items.push({label:x.gloss,tracks:T,meta});if(x.rep)items.push({label:x.gloss,tracks:shifted(T),meta});});
     return Object.assign(r,{items,skipped,order:items.map(x=>x.label).join(' ')});}
   const $=id=>document.getElementById(id),note=$('note'),text=$('text');
@@ -754,7 +799,7 @@ if(LIB){
   text.value=L.presets[0].toLowerCase();say(L.presets[0]);
 }
 document.getElementById('msg').textContent='';
-window.player={scene,camera,renderer,geo,hands,HAND,avatar:AV,get tl(){return TL;},get t(){return t;},load,setCloseUp:v=>{closeUp=!!v;frame();},poseAt:x=>{FREEZE=true;setFrame(x);if(AV)AV.pose(faceState(x));}};
+window.player={scene,camera,renderer,geo,hands,HAND,avatar:AV,get tl(){return TL;},get t(){return t;},load,setCloseUp:v=>{closeUp=!!v;frame();},force:o=>{FORCE=o;},poseAt:x=>{FREEZE=true;setFrame(x);if(AV)AV.pose(faceState(x));}};
 window.seek=x=>{t=x;playing=false;FREEZE=true;setFrame(t);if(AV){AV.pose(faceState(t));AV.U.uKey.value.copy(skinU.uKey.value);AV.U.uRim.value.copy(skinU.uRim.value);}renderer.render(scene,camera);};
 let last=performance.now();
 (function tick(now){

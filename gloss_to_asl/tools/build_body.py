@@ -21,7 +21,7 @@ ASSETS = Path(__file__).resolve().parent.parent / "assets"
 MH = ASSETS / "makehuman"
 OUT = ASSETS / "hand" / "makehuman_body.json"
 
-BONES = ["torso", "neck", "head"] + [f"{p}{s}" for s in "RL" for p in ("up", "f0", "f1", "f2", "wr")]
+BONES = ["torso", "neck", "head"] + [f"{p}{s}" for s in "RL" for p in ("up", "f0", "f1", "f2", "wr")] + ["jaw"]
 BI = {n: i for i, n in enumerate(BONES)}
 HAND_CUT = -0.026
 CUFF = 0.03
@@ -198,6 +198,11 @@ class Body:
             elif base == "neck03":
                 np.add.at(W[:, 1], idx, w * 0.5)
                 np.add.at(W[:, 2], idx, w * 0.5)
+            elif base in ("jaw", "oris01"):
+                np.add.at(W[:, BI["jaw"]], idx, w)
+            elif base.startswith(("oris03", "risorius")):
+                np.add.at(W[:, BI["jaw"]], idx, w * 0.5)
+                np.add.at(W[:, 2], idx, w * 0.5)
             elif base.startswith(HEAD_WORDS):
                 np.add.at(W[:, 2], idx, w)
             else:
@@ -219,6 +224,13 @@ class Body:
             for letter, m in (("R", self.side == 0), ("L", self.side == 1)):
                 W[m, BI[f"{bone}{letter}"]] += (forearm * fw[:, k])[m]
         # forearm weights on the centre line can only come from a side bone; assign by x
+        # split the lips cleanly at the mouth line so the jaw can open them
+        box = (np.abs(V[:, 0]) < 0.62) & (V[:, 1] > 6.42) & (V[:, 1] < 6.78) & (V[:, 2] > 1.0)
+        g = smoothstep(6.616, 6.598, V[:, 1]) * smoothstep(0.62, 0.30, np.abs(V[:, 0]))
+        keep = np.maximum(W[:, BI["jaw"]], g)
+        W[box] = 0
+        W[box, BI["jaw"]] = keep[box]
+        W[box, 2] = 1 - keep[box]
         W /= np.maximum(W.sum(1, keepdims=True), 1e-9)
         self.t_forearm = t / 3
         self.forearm_w = forearm
@@ -246,7 +258,7 @@ def build():
     print("body:", len(Pb), "verts,", len(Tb), "tris")
 
     # ---- shirt
-    headw = Wd[:, 1] + Wd[:, 2]
+    headw = Wd[:, 1] + Wd[:, 2] + Wd[:, BI["jaw"]]
     y_dm = V[:, 1]
     neckline = 5.95 - 0.15 * np.clip((V[:, 2] - 0.5) / 0.9, 0, 1)
     shirt_v = (headw < 0.5) & (y_dm > HEM_DM) & (y_dm < neckline + 0.6) & (B.ylocal < CUFF)
@@ -316,6 +328,8 @@ def build():
     arrays += [("hVerts", np.round(Hp * POS_Q).astype("<i2")), ("hFaces", Th.astype("<u2")), ("hHl", hl)]
     arrays += [("gVerts", np.round(hair_strands[0] * POS_Q).astype("<i2")), ("gUv", np.round(hair_strands[1] * 65535).astype("<u2")),
                ("gFaces", hair_strands[2].astype("<u2"))]
+    for k, v in build_mouth(B).items():
+        arrays.append((k, v))
     for k, v in eyes["arrays"].items():
         arrays.append((k, v))
     for k, v in brows["arrays"].items():
@@ -329,6 +343,7 @@ def build():
         "neckPivot": J("neck01").tolist(), "headPivot": J("head").tolist(),
         "eyeR": eye_c.tolist(), "eyeL": (eye_c * [-1, 1, 1]).tolist(),
         "eyeRadius": eyes["radius"], "eyePng": eyes["png"],
+        "jawPivot": J("jaw").tolist(),
         "nodes": B.nodes, "mouthY": float(B.scene([0, 6.605, 0])[1]),
         "browY": brows["meta"],
     }
@@ -472,6 +487,123 @@ def build_hair_strands(Hp, Th, dh, s_m, count=3800):
     V, UV, F = strand_mesh(items, nseg=3)
     print("hair strands:", len(items), "->", len(V), "verts")
     return V, UV, F
+
+
+def superquad(a, b, c, e1, e2, nu=10, nv=8):
+    """A rounded box (superellipsoid) with half-extents a, b, c; returns verts and triangles."""
+    sp = lambda x, e: np.sign(x) * np.abs(x) ** e
+    V, F = [], []
+    for j in range(nv + 1):
+        phi = -np.pi / 2 + np.pi * j / nv
+        for i in range(nu):
+            th = 2 * np.pi * i / nu
+            V.append([a * sp(np.cos(phi), e1) * sp(np.cos(th), e2), b * sp(np.sin(phi), e1),
+                      c * sp(np.cos(phi), e1) * sp(np.sin(th), e2)])
+    for j in range(nv):
+        for i in range(nu):
+            p0, p1 = j * nu + i, j * nu + (i + 1) % nu
+            F += [[p0, p0 + nu, p1], [p1, p0 + nu, p1 + nu]]
+    return np.array(V), np.array(F)
+
+
+def build_mouth(B):
+    """Teeth, gums, tongue and a dark cavity behind the lips, in scene metres (rest pose, closed jaw)."""
+    my = float(B.scene([0, 6.605, 0])[1])
+    zf = 0.1393
+    widths = [0.0086, 0.0068, 0.0078, 0.0068, 0.0066]
+    ivory = np.array([0.74, 0.69, 0.58])
+    gum = np.array([0.62, 0.24, 0.27])
+
+    def arch(upper):
+        R = 0.034
+        V, C, F = [], [], []
+        x = 0.0
+        slots = []
+        for w in widths:
+            slots += [(x + w / 2, w), (-(x + w / 2), w)]
+            x += w
+        for cx, w in slots:
+            z = zf - (0.0 if upper else 0.0022) - cx * cx / (2 * R)
+            ang = np.arctan(cx / R)
+            h = (0.0105 if abs(cx) < 0.009 else 0.0090 if abs(cx) < 0.0165 else 0.0082) if upper else (0.0072 if abs(cx) < 0.009 else 0.0074)
+            e = h * 0.5
+            v, f = superquad(w * 0.5, e, 0.0019, 0.42, 0.42)
+            # taper the thickness toward the gum line and orient along the arch
+            t = (v[:, 1] / e + 1) / 2
+            depth = 1 - 0.35 * (t if upper else 1 - t)
+            v[:, 2] *= depth
+            v[:, 2] += 0.0019
+            c, sn = np.cos(ang), np.sin(ang)
+            rot = np.array([[c, 0, sn], [0, 1, 0], [-sn, 0, c]])
+            y0 = my - 0.0036 + e if upper else my - 0.0004 - e
+            v = v @ rot.T + np.array([cx, y0, z - 0.0019 * c])
+            col = ivory[None, :] * (0.88 + 0.12 * (t if not upper else 1 - t))[:, None]
+            col = col * np.array([1, 0.98, 0.93]) if upper else col
+            V.append(v)
+            C.append(col)
+            F.append(f + sum(len(q) for q in V[:-1]))
+        # gum band along the arch above (upper) or below (lower) the teeth
+        n = 26
+        xs = np.linspace(-0.0385, 0.0385, n)
+        rows = 5
+        gv, gc, gf = [], [], []
+        for r in range(rows):
+            u = r / (rows - 1)
+            for xx in xs:
+                z = zf - (0.0 if upper else 0.0022) - xx * xx / (2 * R) - 0.0008 + 0.0022 * (1 - abs(u - 0.2)) * 0 + 0.0014 * np.sin(np.pi * min(u * 1.4, 1))
+                if upper:
+                    y = my - 0.0036 + 0.0105 - 0.0016 + u * 0.0075
+                else:
+                    y = my - 0.0004 - 0.0074 + 0.0016 - u * 0.0075
+                gv.append([xx, y, z])
+                gc.append(gum * (1.0 - 0.45 * u))
+        for r in range(rows - 1):
+            for i in range(n - 1):
+                a = r * n + i
+                gf += [[a, a + 1, a + n], [a + 1, a + n + 1, a + n]]
+        # a shadowed plate just behind the teeth so the gaps between them are not see-through
+        pv, pc, pf = [], [], []
+        top = my - 0.0036 + 0.0105 if upper else my - 0.0004
+        bot = my - 0.0036 if upper else my - 0.0004 - 0.0074
+        for ri, yy in enumerate((bot, top)):
+            for xx in xs:
+                pv.append([xx, yy, zf - (0.0 if upper else 0.0022) - xx * xx / (2 * R) - 0.0022])
+                pc.append(ivory * 0.62)
+        for i in range(n - 1):
+            pf += [[i, i + 1, n + i], [i + 1, n + i + 1, n + i], [i, n + i, i + 1], [i + 1, n + i, n + i + 1]]
+        base = sum(len(q) for q in V)
+        V.append(np.array(pv))
+        C.append(np.array(pc))
+        F.append(np.array(pf) + base)
+        base = sum(len(q) for q in V)
+        V.append(np.array(gv))
+        C.append(np.array(gc))
+        F.append(np.array(gf) + base)
+        return np.concatenate(V), np.concatenate(C), np.concatenate(F)
+
+    uV, uC, uF = arch(True)
+    lV, lC, lF = arch(False)
+
+    # tongue: a flattened ellipsoid with a raised tip
+    tv, tf = superquad(0.0155, 0.0062, 0.0215, 0.8, 0.8, nu=16, nv=10)
+    tv = tv * [1, 1, 1] + np.array([0, my - 0.0072, 0.1185])
+    ty = (tv[:, 2] - 0.1185) / 0.0215
+    tv[:, 1] += 0.0025 * np.clip(ty, 0, 1) ** 2
+    tc = np.tile(np.array([0.66, 0.24, 0.28]), (len(tv), 1)) * (0.8 + 0.2 * np.clip(tv[:, 1] - (my - 0.0134), 0, 0.012)[:, None] / 0.012)
+    # cavity: an inverted dark ellipsoid behind the teeth
+    cv, cf = superquad(0.036, 0.024, 0.030, 0.9, 0.9, nu=16, nv=10)
+    cv = cv + np.array([0, my - 0.0035, 0.1105])
+    cf = cf[:, [0, 2, 1]]
+    cc = np.tile(np.array([0.20, 0.055, 0.065]), (len(cv), 1))
+    q = lambda a: np.round(a * POS_Q).astype("<i2")
+    c8 = lambda a: np.round(np.clip(a, 0, 1) * 255).astype("u1")
+    print("mouth: teeth/gum", len(uV), "+", len(lV), "verts; tongue", len(tv))
+    return {
+        "mUVerts": q(uV), "mUCol": c8(uC), "mUFaces": uF.astype("<u2"),
+        "mLVerts": q(lV), "mLCol": c8(lC), "mLFaces": lF.astype("<u2"),
+        "mTVerts": q(tv), "mTCol": c8(tc), "mTFaces": tf.astype("<u2"),
+        "mCVerts": q(cv), "mCCol": c8(cc), "mCFaces": cf.astype("<u2"),
+    }
 
 
 def build_brows(B, T0, P, Nrm):
