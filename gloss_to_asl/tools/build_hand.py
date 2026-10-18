@@ -1,3 +1,4 @@
+import gzip
 import json
 from pathlib import Path
 
@@ -6,6 +7,7 @@ import numpy as np
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 MH = ASSETS / "makehuman"
 OUT = ASSETS / "hand" / "makehuman_hand.json"
+SHAPE = MH / "mpfb" / "targets" / "caucasian-male-young.target.gz"
 
 FINGERS = ["index", "middle", "ring", "pinky"]
 NAMES = ["wrist"] + [f"{f}-{p}" for f in FINGERS for p in ("mc", "mcp", "pip", "dip")] + ["thumb-cmc", "thumb-mcp", "thumb-ip"]
@@ -74,7 +76,61 @@ def read_obj(obj):
         elif line.startswith("f "):
             idx = [int(t.split("/")[0]) - 1 for t in line.split()[1:]]
             groups.setdefault(group, []).append(idx)
-    return np.array(V), groups
+    V = np.array(V)
+    if Path(obj).name == "base.obj" and SHAPE.exists():
+        V = V + torso_shape(V)
+    return V, groups
+
+
+def _ramp(x, a, b):
+    t = np.clip((x - a) / (b - a), 0, 1)
+    return t * t * (3 - 2 * t)
+
+
+def torso_shape(V):
+    d = np.zeros_like(V)
+    with gzip.open(SHAPE, "rt") as f:
+        for line in f:
+            t = line.split()
+            if len(t) == 4:
+                d[int(t[0])] = [float(x) for x in t[1:]]
+    d[:, 1] = 0
+    w = _ramp(V[:, 1], 1.5, 3.0) * (1 - _ramp(V[:, 1], 5.4, 5.9)) * (1 - _ramp(np.abs(V[:, 0]), 1.6, 2.4))
+    x, y, z = V[:, 0], V[:, 1], V[:, 2]
+    waist = _ramp(y, 1.3, 2.2) * (1 - _ramp(y, 3.0, 3.8)) * (1 - _ramp(np.abs(x), 1.8, 2.6))
+    chest = _ramp(y, 3.4, 4.2) * (1 - _ramp(y, 5.3, 5.8)) * (1 - _ramp(np.abs(x), 2.4, 3.4))
+    pec = _ramp(y, 3.8, 4.3) * (1 - _ramp(y, 5.0, 5.4)) * _ramp(np.abs(x), 0.1, 0.5) * (1 - _ramp(np.abs(x), 1.3, 1.9)) * (z > 0)
+    dx = x * (0.07 * chest - 0.02 * waist)
+    dz = 0.1 * pec
+    return d * w[:, None] + np.stack([dx, 0 * x, dz], 1) + arm_bulk(V)
+
+
+ARM_PTS = np.array([[2.09, 5.25, 0.22], [3.13, 3.49, 0.13], [4.31, 2.45, 1.76]])
+
+
+def arm_bulk(V, grow=0.22):
+    P = V.copy()
+    P[:, 0] = np.abs(V[:, 0])
+    best_r = np.full(len(V), 9.0)
+    best_t = np.zeros(len(V))
+    best_c = np.zeros_like(V)
+    total = 0.0
+    for a, b in zip(ARM_PTS[:-1], ARM_PTS[1:]):
+        ab = b - a
+        L = np.linalg.norm(ab)
+        u = np.clip(((P - a) @ ab) / (L * L), 0, 1)
+        c = a + u[:, None] * ab
+        r = np.linalg.norm(P - c, axis=1)
+        m = r < best_r
+        best_r[m] = r[m]
+        best_t[m] = (total + u[m] * L) / 4.31
+        best_c[m] = c[m]
+        total += L
+    along = _ramp(best_t, 0.12, 0.3) * (1 - _ramp(best_t, 0.78, 0.95))
+    near = 1 - _ramp(best_r, 0.7, 1.1)
+    out = (P - best_c) * (grow * along * near)[:, None]
+    out[:, 0] *= np.sign(V[:, 0] + 1e-9)
+    return out
 
 
 class MakeHumanHand:

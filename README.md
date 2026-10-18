@@ -62,7 +62,7 @@ Then open http://localhost:8000 in **Chrome or Edge**.
 
 ### The signer's body
 
-`gloss_to_asl/assets/hand/makehuman_body.json` holds the upper body, eyes, eyebrows, hair and shirt, packed for the page, and is committed like the hand. To rebuild it, put the CC0 MakeHuman files `base.obj`, `default.mhskel`, `default_weights.mhw`, `eyes/high-poly/high-poly.{obj,mhclo}` and `eyes/materials/brown_eye.png` from https://github.com/makehumancommunity/makehuman (`makehuman/data`), plus `hair/hair_05.obj`, `hair/hair_05.png` and `hair/culturalibre_hair_05.mhclo` from the MakeHuman Hair 01 pack, in `gloss_to_asl/assets/makehuman/` (git-ignored), then run:
+`gloss_to_asl/assets/hand/makehuman_body.json` holds the upper body, eyes, eyebrows, hair and shirt, packed for the page, and is committed like the hand. To rebuild it, put the CC0 MakeHuman files `base.obj`, `default.mhskel`, `default_weights.mhw`, `eyes/high-poly/high-poly.{obj,mhclo}` and `eyes/materials/brown_eye.png` from https://github.com/makehumancommunity/makehuman (`makehuman/data`), plus `mpfb/targets/caucasian-male-young.target.gz` from https://github.com/makehumancommunity/mpfb2, plus `hair/hair_05.obj`, `hair/hair_05.png` and `hair/culturalibre_hair_05.mhclo` from the MakeHuman Hair 01 pack, in `gloss_to_asl/assets/makehuman/` (git-ignored), then run:
 
 ```bash
 venv/bin/python -m gloss_to_asl.tools.build_body
@@ -95,7 +95,7 @@ After deployment, the site is public on GitHub Pages with no password gate.
 
 The code is MIT licensed (see `LICENSE`). The sign data has separate terms. Every credit and license is listed in `NOTICE.md`.
 
-- **3D signer:** MakeHuman base mesh, skeleton, weights, eyes and hair (by culturalibre), CC0, free to use. The shirt and eyebrows are generated in this repo.
+- **3D signer:** MakeHuman base mesh, skeleton, weights, eyes and hair (by culturalibre), CC0, free to use. The chest and shoulder shape uses the MPFB2 `caucasian-male-young` target, also CC0. The shirt and eyebrows are generated in this repo.
 - **Sign motion:** tracked by this project from WLASL sign videos.
   - WLASL is shared under the Computational Use of Data Agreement (C-UDA 1.0), which puts no limits on Results, meaning things made from the data that don't contain it.
   - `signs.json.gz` holds only joint angles and positions, with no video frames, which is why it is in the repo.
@@ -103,4 +103,3 @@ The code is MIT licensed (see `LICENSE`). The sign data has separate terms. Ever
   - The WLASL videos themselves (`datasets/`) and the full tracking output (`clips/`) stay out of git.
   - Credit: Li et al., "Word-level Deep Sign Language Recognition from Video", WACV 2020 (https://github.com/dxli94/WLASL).
 - **Sign checking:** ASL-LEX, used for research.
-- Translations are made by a program and have not been checked by a Deaf signer.
