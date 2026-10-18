@@ -21,7 +21,7 @@ ASSETS = Path(__file__).resolve().parent.parent / "assets"
 MH = ASSETS / "makehuman"
 OUT = ASSETS / "hand" / "makehuman_body.json"
 
-BONES = ["torso", "neck", "head"] + [f"{p}{s}" for s in "RL" for p in ("up", "f0", "f1", "f2", "wr")] + ["jaw"]
+BONES = ["torso", "neck", "head"] + [f"{p}{s}" for s in "RL" for p in ("up", "f0", "f1", "f2", "wr")] + ["jaw", "clR", "clL"]
 BI = {n: i for i, n in enumerate(BONES)}
 HAND_CUT = -0.026
 CUFF = 0.03
@@ -139,6 +139,27 @@ def drape(S, P, N, off, T, Vdm, iters=14):
     return S
 
 
+def round_shoulders(P, T, centres, radius=0.08, iters=10):
+    """Soften the squared-off shoulder caps of the base mesh with a local Laplacian smooth."""
+    n = len(P)
+    nbr = [set() for _ in range(n)]
+    for a, b, c in T:
+        nbr[a] |= {b, c}
+        nbr[b] |= {a, c}
+        nbr[c] |= {a, b}
+    d = np.min([np.linalg.norm(P - c, axis=1) for c in centres], axis=0)
+    w = smoothstep(radius, radius * 0.45, d)
+    w *= smoothstep(centres[0][1] - 0.04, centres[0][1] + 0.01, P[:, 1])
+    idx = [i for i in np.flatnonzero(w > 0) if nbr[i]]
+    P = P.copy()
+    for _ in range(iters):
+        avg = P.copy()
+        for i in idx:
+            avg[i] = P[list(nbr[i])].mean(0)
+        P = P + (avg - P) * (0.55 * w)[:, None]
+    return P
+
+
 def boundary_edges(T):
     seen = {}
     for a, b, c in T:
@@ -187,9 +208,11 @@ class Body:
                 np.add.at(forearm, idx, w)
             elif base.startswith("upperarm"):
                 np.add.at(W[:, arm("up")], idx, w)
+            elif base == "clavicle":
+                np.add.at(W[:, arm("cl")], idx, w)
             elif base == "shoulder01":
                 np.add.at(W[:, arm("up")], idx, w * 0.5)
-                np.add.at(W[:, 0], idx, w * 0.5)
+                np.add.at(W[:, arm("cl")], idx, w * 0.5)
             elif base == "neck01":
                 np.add.at(W[:, 0], idx, w * 0.5)
                 np.add.at(W[:, 1], idx, w * 0.5)
@@ -250,6 +273,8 @@ def build():
     P = B.scene(V)
     Nrm = vertex_normals(P, T0)
     P = P - Nrm * (0.022 * np.clip(B.breast, 0, 1))[:, None]
+    sh_r = B.scene(h.head("upperarm01.R"))
+    P = round_shoulders(P, T0, [sh_r, sh_r * [-1, 1, 1]])
     Nrm = vertex_normals(P, T0)
 
     # ---- body
@@ -343,7 +368,7 @@ def build():
         "neckPivot": J("neck01").tolist(), "headPivot": J("head").tolist(),
         "eyeR": eye_c.tolist(), "eyeL": (eye_c * [-1, 1, 1]).tolist(),
         "eyeRadius": eyes["radius"], "eyePng": eyes["png"],
-        "jawPivot": J("jaw").tolist(),
+        "jawPivot": J("jaw").tolist(), "clavicle": J("clavicle.R").tolist(),
         "nodes": B.nodes, "mouthY": float(B.scene([0, 6.605, 0])[1]),
         "browY": brows["meta"],
     }

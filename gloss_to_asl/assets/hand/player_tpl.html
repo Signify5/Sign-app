@@ -359,7 +359,8 @@ AV=(function makeAvatar(){
   const invR=[Tm(Sh).invert(),Tm(El).invert(),Tm(piv[0]).invert(),Tm(piv[1]).invert(),R0m.clone().multiply(Tm(Wr).invert())];
   const invL=invR.map(m=>Mx.clone().multiply(m).multiply(Mx));
   const Pj=new V3(...BODY.jawPivot);
-  const skeleton=new THREE.Skeleton(bones,[new M4(),Tm(Pn).invert(),Tm(Ph).invert(),...invR,...invL,Tm(Pj).invert()]);
+  const Cl=new V3(...BODY.clavicle),invCl=Tm(Cl).invert();
+  const skeleton=new THREE.Skeleton(bones,[new M4(),Tm(Pn).invert(),Tm(Ph).invert(),...invR,...invL,Tm(Pj).invert(),invCl,Mx.clone().multiply(invCl).multiply(Mx)]);
 
   const mkGeo=(v,f,si,sw)=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(f3(v),3));
     g.setIndex(new THREE.BufferAttribute(u16(f),1));
@@ -582,35 +583,59 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
   const eyeC=[new V3(...BODY.eyeR),new V3(...BODY.eyeL)];
 
   // ---- per-frame pose
-  const Wp=Array.from({length:5},()=>new M4()),tmp=new M4(),tq=new Qt(),tq2=new Qt(),eu=new THREE.Euler(0,0,0,'YXZ');
+  const Wp=Array.from({length:6},()=>new M4()),tmp=new M4(),tq=new Qt(),tq2=new Qt(),eu=new THREE.Euler(0,0,0,'YXZ');
   const dirST=new V3(),pole=new V3(),E=new V3(),S=new V3(),T=new V3(),upP=new V3(),foP=new V3(),nP=new V3();
   const Rup=new M4(),Rfo=new M4(),qUp=new Qt(),qFo=new Qt(),rel=new Qt();
-  function arm(h,out){
-    T.copy(h.g.position);S.copy(Sh);
-    S.y+=Math.min(1,Math.max(0,(T.y-Sh.y-0.05)/0.25))*0.012;
-    dirST.subVectors(T,S);let d=dirST.length();dirST.divideScalar(d||1);
-    const maxR=(L1+L2)*0.985,minR=Math.abs(L1-L2)+0.03;
-    if(d>maxR||d<minR){d=Math.min(maxR,Math.max(minR,d));T.copy(S).addScaledVector(dirST,d);h.g.position.copy(T);h.outer.updateMatrixWorld(true);}
-    pole.set(-0.55,-1,-0.35);pole.addScaledVector(dirST,-pole.dot(dirST));if(pole.lengthSq()<1e-4)pole.set(0,0,-1).addScaledVector(dirST,dirST.z);pole.normalize();
+  const sm=x=>{x=Math.min(1,Math.max(0,x));return x*x*(3-2*x);};
+  const poleBase=new V3(-0.55,-1,-0.35),clRest=Sh.clone().sub(Cl).normalize(),clNow=new V3();
+  const CAND=[-60,-45,-30,-15,0,15,30,45,60].map(d=>d*Math.PI/180);
+  const qh=new Qt(),res={th:0};
+  // elbow, bone rotations and forearm twist for one swivel angle of the elbow around the shoulder-wrist line
+  function evalPose(d,phi){
+    pole.copy(poleBase);pole.addScaledVector(dirST,-pole.dot(dirST));
+    if(pole.lengthSq()<1e-4)pole.set(0,0,-1).addScaledVector(dirST,dirST.z);
+    pole.normalize().applyAxisAngle(dirST,phi);
     const a=(L1*L1-L2*L2+d*d)/(2*d),hgt=Math.sqrt(Math.max(L1*L1-a*a,0));
     E.copy(S).addScaledVector(dirST,a).addScaledVector(pole,hgt);
     upP.subVectors(E,S).normalize();foP.subVectors(T,E).normalize();nP.crossVectors(dirST,pole).normalize();
     Rup.copy(basis(upP,nP)).multiply(FupR);qUp.setFromRotationMatrix(Rup);
     Rfo.copy(basis(foP,nP)).multiply(FfoR);qFo.setFromRotationMatrix(Rfo);
+    rel.copy(qh);rel.premultiply(tq.copy(qFo).invert());if(rel.w<0)rel.set(-rel.x,-rel.y,-rel.z,-rel.w);
+    res.th=2*Math.atan2(rel.x*foreR.x+rel.y*foreR.y+rel.z*foreR.z,rel.w);
+  }
+  function arm(h,out){
+    // the shoulder rides up, forward and toward the middle as the hand reaches high, forward or across
+    const Tt=h.g.position;
+    const up=sm((Tt.y-Sh.y+0.03)/0.30),fwd=sm((Tt.z-0.10)/0.22),cross=sm((Tt.x-Sh.x-0.02)/0.25);
+    S.set(Sh.x+cross*0.014,Sh.y+up*0.032,Sh.z+fwd*0.016+cross*0.006);
+    T.copy(Tt);
+    dirST.subVectors(T,S);let d=dirST.length();dirST.divideScalar(d||1);
+    const maxR=(L1+L2)*0.985,minR=Math.abs(L1-L2)+0.03;
+    if(d>maxR||d<minR){d=Math.min(maxR,Math.max(minR,d));T.copy(S).addScaledVector(dirST,d);h.g.position.copy(T);h.outer.updateMatrixWorld(true);}
     const Wm=tmp.multiplyMatrices(h.g.matrix,h.bones[0].matrix);
-    rel.setFromRotationMatrix(Wm).multiply(R0q);rel.premultiply(tq.copy(qFo).invert());if(rel.w<0)rel.set(-rel.x,-rel.y,-rel.z,-rel.w);
-    const th=2*Math.atan2(rel.x*foreR.x+rel.y*foreR.y+rel.z*foreR.z,rel.w);
+    qh.setFromRotationMatrix(Wm).multiply(R0q);
+    // choose the swivel that needs the least forearm twist, keeps the elbow off the torso and below the shoulder
+    let best=0,bc=1e9;
+    for(const phi of CAND){evalPose(d,phi);
+      let c=Math.abs(res.th)*0.9+3.0*Math.max(0,E.x+0.14)/0.05+2.0*Math.max(0,E.y-S.y-0.03)/0.10+0.4*Math.abs(phi)/0.5;
+      if(h.sw!==undefined&&!FREEZE)c+=0.5*Math.abs(phi-h.sw)/0.5;
+      if(c<bc){bc=c;best=phi;}}
+    h.sw=(h.sw===undefined||FREEZE)?best:h.sw+(best-h.sw)*0.3;
+    evalPose(d,h.sw);
+    const th=res.th;
     const comp=(m,p,q)=>m.compose(p,q,ONE);
     comp(out[0],S,qUp);comp(out[1],E,qFo);
     comp(out[2],new V3().copy(E).lerp(T,nodes[1]),tq.copy(qFo).multiply(twistQ(foreR,th*nodes[1]/nodes[3])));
     comp(out[3],new V3().copy(E).lerp(T,nodes[2]),tq.copy(qFo).multiply(twistQ(foreR,th*nodes[2]/nodes[3])));
     out[4].multiplyMatrices(h.g.matrix,h.bones[0].matrix);
+    clNow.subVectors(S,Cl).normalize();comp(out[5],Cl,tq.setFromUnitVectors(clRest,clNow));
   }
   const ONE=new V3(1,1,1);
   const jawM=new M4(),headM=new M4(),neckW=new M4(),headW=new M4(),qHead=new Qt(),qNeck=new Qt(),qRel=new Qt(),idQ=new Qt(),Mn=new M4();
   function pose(st){
     hands.forEach(h=>{arm(h,Wp);const base=h.mirror?8:3;
-      for(let k=0;k<5;k++){const m=bones[base+k].matrix;m.copy(Wp[k]);if(h.mirror)m.premultiply(Mx).multiply(Mx);bones[base+k].matrixWorldNeedsUpdate=true;}});
+      for(let k=0;k<5;k++){const m=bones[base+k].matrix;m.copy(Wp[k]);if(h.mirror)m.premultiply(Mx).multiply(Mx);bones[base+k].matrixWorldNeedsUpdate=true;}
+      {const cb=bones[h.mirror?15:14],m=cb.matrix;m.copy(Wp[5]);if(h.mirror)m.premultiply(Mx).multiply(Mx);cb.matrixWorldNeedsUpdate=true;}});
     eu.set(st.pitch,st.yaw,st.roll);qHead.setFromEuler(eu);qNeck.copy(idQ).slerp(qHead,0.35);
     Mn.compose(Pn,qNeck,ONE).multiply(Tm(Pn).invert());
     qRel.copy(qNeck).invert().multiply(qHead);
@@ -799,7 +824,7 @@ if(LIB){
   text.value=L.presets[0].toLowerCase();say(L.presets[0]);
 }
 document.getElementById('msg').textContent='';
-window.player={scene,camera,renderer,geo,hands,HAND,avatar:AV,get tl(){return TL;},get t(){return t;},load,setCloseUp:v=>{closeUp=!!v;frame();},force:o=>{FORCE=o;},poseAt:x=>{FREEZE=true;setFrame(x);if(AV)AV.pose(faceState(x));}};
+window.player={scene,camera,renderer,geo,hands,HAND,avatar:AV,get tl(){return TL;},get t(){return t;},load,setCloseUp:v=>{closeUp=!!v;frame();},force:o=>{FORCE=o;},poseAt:(x,keep)=>{FREEZE=!keep;setFrame(x);if(AV)AV.pose(faceState(x));}};
 window.seek=x=>{t=x;playing=false;FREEZE=true;setFrame(t);if(AV){AV.pose(faceState(t));AV.U.uKey.value.copy(skinU.uKey.value);AV.U.uRim.value.copy(skinU.uRim.value);}renderer.render(scene,camera);};
 let last=performance.now();
 (function tick(now){
