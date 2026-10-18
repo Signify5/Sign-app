@@ -290,6 +290,9 @@ def build():
     shirt_t = shirt_v[T0].all(1)
     Ts = T0[shirt_t]
     off = np.where(np.abs(V[:, 0]) > 1.7, 0.0032, 0.0048)
+    elbow = h.head("lowerarm01.R")
+    d_elbow = np.minimum(np.linalg.norm(V - elbow, axis=1), np.linalg.norm(V - elbow * [-1, 1, 1], axis=1))
+    off = off + 0.0042 * smoothstep(1.1, 0.2, d_elbow)
     sh = drape(P + Nrm * off[:, None], P, Nrm, off, Ts, V)
     bnd = boundary_edges(Ts)
     strips = []

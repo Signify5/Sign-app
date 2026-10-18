@@ -387,7 +387,7 @@ AV=(function makeAvatar(){
 
   // ---- face morphs (brows and lids), shared by skin and brow hair
   const FACE_GLSL=`
-uniform vec3 uEyeR;uniform vec2 uBrow;uniform float uBlink;uniform vec4 uMouth;uniform float uMouthY2;
+uniform vec3 uEyeR;uniform vec2 uBrow;uniform float uBlink;uniform vec4 uMouth;uniform float uMouthY2;uniform float uBreath;
 vec3 eyeMorph(vec3 p,float brow,float blink){
   vec3 r=p-uEyeR;vec3 d=vec3(0.0);
   float front=smoothstep(-0.035,-0.012,r.z);
@@ -422,13 +422,13 @@ vec3 faceMorph(vec3 p){
   vec3 dm=eyeMorph(vec3(-p.x,p.y,p.z),uBrow.y,uBlink);
   return d+vec3(-dm.x,dm.y,dm.z);
 }`;
-  const U={uEyeR:{value:new V3(...BODY.eyeR)},uBrow:{value:new THREE.Vector2()},uBlink:{value:0},uMouth:{value:new THREE.Vector4()},uMouthY2:{value:BODY.mouthY},uKey:{value:new V3()},uRim:{value:new V3()}};
+  const U={uEyeR:{value:new V3(...BODY.eyeR)},uBrow:{value:new THREE.Vector2()},uBlink:{value:0},uMouth:{value:new THREE.Vector4()},uMouthY2:{value:BODY.mouthY},uBreath:{value:0},uBend:{value:new THREE.Vector2()},uElbow:{value:El.clone()},uFore:{value:foreR.clone()},uBendDir:{value:bR.clone()},uKey:{value:new V3()},uRim:{value:new V3()}};
 
   // ---- skin
   const skin=new THREE.MeshPhysicalMaterial({color:0xe2b39d,roughness:0.52,metalness:0,sheen:0.25,sheenRoughness:0.6,sheenColor:new THREE.Color(0xffb0a0),clearcoat:0.05,clearcoatRoughness:0.6,envMapIntensity:0.5,transparent:true});
   skin.onBeforeCompile=s=>{
     Object.assign(s.uniforms,U);
-    s.vertexShader=FACE_GLSL+'attribute float cover;attribute float cav;varying float vCav;varying float vCover;varying vec3 vRestB;varying vec3 vRestN;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvCover=cover;vCav=cav;vRestB=position;vRestN=normal;transformed+=faceMorph(position);');
+    s.vertexShader=FACE_GLSL+'attribute float cover;attribute float cav;varying float vCav;varying float vCover;varying vec3 vRestB;varying vec3 vRestN;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvCover=cover;vCav=cav;vRestB=position;vRestN=normal;transformed+=faceMorph(position);\n{float chm=smoothstep(0.03,-0.04,position.y)*smoothstep(-0.30,-0.18,position.y)*smoothstep(0.20,0.12,abs(position.x))*smoothstep(-0.02,0.04,position.z);float shm=smoothstep(0.02,0.07,position.y)*smoothstep(0.0,-0.04,position.y-0.04)*0.0+smoothstep(-0.03,0.0,position.y)*smoothstep(0.06,0.0,position.y)*smoothstep(0.26,0.12,abs(position.x));transformed+=normal*uBreath*0.0032*chm+vec3(0.0,uBreath*0.0016*shm,0.0);}');
     s.fragmentShader=PERTURB_GLSL+`varying vec3 vRestN;varying float vCav;varying float vCover;varying vec3 vRestB;uniform vec3 uEyeR,uKey,uRim;uniform float uMouthY;float gLip=0.0,gOil=0.0,gH=0.0;
 float hsh(vec3 p){p=fract(p*0.3183099+0.1);p*=17.0;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}
 float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
@@ -485,7 +485,7 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
        gH=(vnoise(p*1500.0)-0.5)*0.00007+(vnoise(p*520.0)-0.5)*0.00009
           -0.00012*pow(abs(sin(p.y*340.0+vnoise(p*40.0)*3.0)),10.0)*forehead*smoothstep(0.0,0.012,abs(p.x)+0.012);
        col*=mix(vec3(1.0),vec3(0.62,0.40,0.36),clamp(vCav*1.15,0.0,1.0));
-       col=mix(col,vec3(0.035,0.04,0.05),smoothstep(0.85,1.0,vCover));
+       col=mix(col,vec3(0.075,0.095,0.125),smoothstep(0.85,1.0,vCover));
        diffuseColor.rgb=col;}`)
      .replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor=clamp(roughnessFactor-0.22*gOil-0.28*gLip+gH*700.0,0.22,0.8);')
      .replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\nnormal=myPerturb(-vViewPosition,normal,vec2(dFdx(gH),dFdy(gH)),faceDirection);')
@@ -507,8 +507,9 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
   // ---- shirt
   const shirtMat=new THREE.MeshPhysicalMaterial({color:0x27313f,roughness:0.88,metalness:0,sheen:0.6,sheenRoughness:0.5,sheenColor:new THREE.Color(0x6d7b90),envMapIntensity:0.35,transparent:true});
   shirtMat.onBeforeCompile=s=>{
-    s.vertexShader='attribute float trim;attribute float scav;varying float vTrim;varying float vScav;varying vec3 vP;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvP=position;vTrim=trim*0.04;vScav=scav;');
-    s.fragmentShader='varying float vTrim;varying float vScav;varying vec3 vP;\nfloat hs(vec3 p){p=fract(p*0.3183099+0.1);p*=17.0;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}\nfloat vn(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);return mix(mix(mix(hs(i),hs(i+vec3(1,0,0)),f.x),mix(hs(i+vec3(0,1,0)),hs(i+vec3(1,1,0)),f.x),f.y),mix(mix(hs(i+vec3(0,0,1)),hs(i+vec3(1,0,1)),f.x),mix(hs(i+vec3(0,1,1)),hs(i+vec3(1,1,1)),f.x),f.y),f.z);}\n'+s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+    Object.assign(s.uniforms,{uBreath:U.uBreath,uBend:U.uBend,uElbow:U.uElbow,uFore:U.uFore,uBendDir:U.uBendDir});
+    s.vertexShader='uniform float uBreath;attribute float trim;attribute float scav;varying float vTrim;varying float vScav;varying vec3 vP;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvP=position;vTrim=trim*0.04;vScav=scav;{float chm=smoothstep(0.03,-0.04,position.y)*smoothstep(-0.30,-0.18,position.y)*smoothstep(0.20,0.12,abs(position.x))*smoothstep(-0.02,0.04,position.z);float shm=smoothstep(-0.03,0.0,position.y)*smoothstep(0.06,0.0,position.y)*smoothstep(0.26,0.12,abs(position.x));transformed+=normal*uBreath*0.0036*chm+vec3(0.0,uBreath*0.0016*shm,0.0);}');
+    s.fragmentShader='uniform vec2 uBend;uniform vec3 uElbow;uniform vec3 uFore;uniform vec3 uBendDir;varying float vTrim;varying float vScav;varying vec3 vP;\nfloat hs(vec3 p){p=fract(p*0.3183099+0.1);p*=17.0;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}\nfloat vn(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);return mix(mix(mix(hs(i),hs(i+vec3(1,0,0)),f.x),mix(hs(i+vec3(0,1,0)),hs(i+vec3(1,1,0)),f.x),f.y),mix(mix(hs(i+vec3(0,0,1)),hs(i+vec3(1,0,1)),f.x),mix(hs(i+vec3(0,1,1)),hs(i+vec3(1,1,1)),f.x),f.y),f.z);}\n'+s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
       {vec3 c=diffuseColor.rgb;
        // knit: fine weave plus soft folds
        float w=0.5+0.5*sin(vP.x*1700.0)*sin(vP.y*1700.0+vP.z*320.0);
@@ -520,6 +521,13 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
        c=mix(c,c*(0.78+0.3*rib),band);
        float seam=exp(-pow((vTrim-0.0135)/0.0007,2.0));
        c*=1.0-0.35*seam;
+       // sleeve creases gather on the inside of a bent elbow
+       {float bnd=vP.x<0.0?uBend.x:uBend.y;vec3 rr=vec3(-abs(vP.x),vP.y,vP.z)-uElbow;float sl=dot(rr,uFore);vec3 perp=rr-uFore*sl;float pl=length(perp);
+        float region=exp(-pow(sl/0.075,2.0))*(1.0-smoothstep(0.06,0.09,pl));
+        float inner=smoothstep(0.5,-0.2,dot(normalize(perp+vec3(1e-5)),uBendDir));
+        float ridge=0.5+0.5*sin(sl*620.0+vn(vP*60.0)*3.0);
+        c*=1.0-bnd*region*inner*(0.22+0.46*ridge);
+        c*=1.0+0.05*bnd*region*(1.0-inner);}
        // armpits and folds read darker
        c*=1.0-0.55*clamp(vScav*1.3,0.0,1.0);
        diffuseColor.rgb=c;}`).replace('#include <dithering_fragment>','gl_FragColor.a*=smoothstep(-0.47,-0.40,vP.y);\n#include <dithering_fragment>');};
@@ -640,7 +648,7 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
       if(c<bc){bc=c;best=phi;}}
     h.sw=(h.sw===undefined||FREEZE)?best:h.sw+(best-h.sw)*0.3;
     evalPose(d,h.sw);
-    const th=res.th;
+    const th=res.th;h.bend=Math.acos(Math.min(1,Math.max(-1,upP.dot(foP))));
     const comp=(m,p,q)=>m.compose(p,q,ONE);
     comp(out[0],S,qUp);comp(out[1],E,qFo);
     comp(out[2],new V3().copy(E).lerp(T,nodes[1]),tq.copy(qFo).multiply(twistQ(foreR,th*nodes[1]/nodes[3])));
@@ -652,6 +660,7 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
   const jawM=new M4(),headM=new M4(),neckW=new M4(),headW=new M4(),qHead=new Qt(),qNeck=new Qt(),qRel=new Qt(),idQ=new Qt(),Mn=new M4();
   function pose(st){
     hands.forEach(h=>{arm(h,Wp);const base=h.mirror?8:3;
+      U.uBend.value.setComponent(h.mirror?1:0,Math.min(1,Math.max(0,(h.bend||0)/2.0)));
       for(let k=0;k<5;k++){const m=bones[base+k].matrix;m.copy(Wp[k]);if(h.mirror)m.premultiply(Mx).multiply(Mx);bones[base+k].matrixWorldNeedsUpdate=true;}
       {const cb=bones[h.mirror?15:14],m=cb.matrix;m.copy(Wp[5]);if(h.mirror)m.premultiply(Mx).multiply(Mx);cb.matrixWorldNeedsUpdate=true;}});
     eu.set(st.pitch,st.yaw,st.roll);qHead.setFromEuler(eu);qNeck.copy(idQ).slerp(qHead,0.35);
@@ -669,14 +678,14 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
     [brows,browHair,lashes].forEach(set=>set.forEach((m,i)=>{m.matrix.copy(headM);if(i)m.matrix.multiply(Mx);m.matrixWorldNeedsUpdate=true;m.material.userData.u.uBrow.value.x=i?st.browL:st.browR;}));
     eu.set(st.gy,st.gx,0);tq.setFromEuler(eu);
     eyes.forEach((m,i)=>{m.matrix.copy(headM).multiply(Tm(eyeC[i])).multiply(tmp.makeRotationFromQuaternion(tq));if(i)m.matrix.multiply(Mx);m.matrixWorldNeedsUpdate=true;});
-    U.uBrow.value.set(st.browR,st.browL);U.uBlink.value=st.blink;U.uMouth.value.set(st.pucker,st.wide,st.puff,0);
+    U.uBrow.value.set(st.browR,st.browL);U.uBlink.value=st.blink;U.uMouth.value.set(st.pucker,st.wide,st.puff,0);U.uBreath.value=st.breath;
   }
   return {group:grp,skin,pose,U,bones,hairMat,shirtMat};
 })();
 }
 
 // ---- grammar markers: brows, head, blinks and gaze
-const NM={sents:[],words:[],mouth:[],fps:30};
+const NM={sents:[],words:[],mouth:[],starts:[],fps:30};
 const sstep=x=>{x=Math.min(1,Math.max(0,x));return x*x*(3-2*x);};
 function nmmPlan(tl){const S=new Map();
   tl.segments.forEach(([s,e,l,m])=>{if(!m||!m.mark)return;const o=S.get(m.sent);if(o)o.b=e;else S.set(m.sent,{a:s,b:e,mark:m.mark});});
@@ -686,6 +695,7 @@ function nmmPlan(tl){const S=new Map();
     CARELESS:'th',RECENT:'th',FINISH:'pah',DONE:'pah',WOW:'wow',AMAZING:'wow',SURPRISE:'wow',HAPPY:'smile',FUNNY:'smile',EXCITED:'smile',LOVE:'smile'};
   NM.mouth=tl.segments.filter(x=>x[3]&&!x[3].spell).map(x=>{const l=String(x[2]).toUpperCase();
     return {a:x[0],b:x[1],type:MOUTH[l]||'talk',syl:Math.min(4,Math.max(1,(l.match(/[AEIOUY]+/g)||['A']).length))};});
+  NM.starts=tl.segments.filter(x=>x[3]&&!x[3].spell).map(x=>x[0]);
   NM.ends=tl.segments.length?[tl.segments[tl.segments.length-1][1]]:[];}
 const BL=[];{let r=7,tb=1.4;while(tb<1500){r=(r*1664525+1013904223)>>>0;tb+=1.8+3.4*r/4294967296;BL.push(tb);}}
 function blinkAt(c){let lo=0,hi=BL.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(BL[m]<=c)lo=m;else hi=m-1;}
@@ -695,7 +705,7 @@ function blinkAt(c){let lo=0,hi=BL.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if
 let FREEZE=false,FORCE=null;
 function faceState(t){
   const f=NM.fps||30,c=FREEZE?t/f:performance.now()/1000;
-  const st={browR:0,browL:0,blink:0,pitch:0,yaw:0,roll:0,gx:0,gy:0,jaw:0,pucker:0,wide:0,puff:0,tongue:0};
+  const st={browR:0,browL:0,blink:0,pitch:0,yaw:0,roll:0,gx:0,gy:0,jaw:0,pucker:0,wide:0,puff:0,tongue:0,breath:0};
   let brow=0;
   NM.sents.forEach(s=>{const env=Math.min(sstep((t-(s.a-9))/9),1-sstep((t-s.b)/12));if(env<=0)return;
     if(s.mark==='yn'){brow+=env;st.pitch+=0.09*env;st.roll+=0.04*env;}
@@ -717,7 +727,8 @@ function faceState(t){
       default:up('jaw',0.13*env*pulse);}});
   st.pitch+=0.016*Math.sin(c*0.9)+0.010*Math.sin(c*2.3+1);st.yaw+=0.022*Math.sin(c*0.55+0.5)+0.010*Math.sin(c*1.7);st.roll+=0.014*Math.sin(c*0.7+2);
   brow=Math.max(-1,Math.min(1,brow+0.05*Math.sin(c*1.3)));st.browR=st.browL=brow;
-  st.blink=blinkAt(c);
+  st.blink=blinkAt(c);st.breath=0.5+0.5*Math.sin(c*Math.PI*0.5);
+  NM.starts.forEach(a=>{const x=(t-a)/f;if(x>-0.05&&x<0.45)st.pitch+=0.035*Math.sin(Math.PI*(x+0.05)/0.5);});
   if(FORCE)Object.assign(st,FORCE);
   st.gx=-0.75*st.yaw+0.03*Math.sin(c*0.8)*Math.sin(c*0.37+1);st.gy=-0.75*st.pitch+0.02*Math.sin(c*0.6+2)*Math.sin(c*0.29);
   return st;}
