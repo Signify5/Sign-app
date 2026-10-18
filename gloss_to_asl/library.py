@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import gzip
+import hashlib
 import json
 import os
 import webbrowser
@@ -122,8 +124,22 @@ def pack_library(rig: Rig, index: ClipIndex, glosses: Sequence[str],
     }
 
 
+def split_blob(pack: dict, folder: Path, name: str) -> dict:
+    raw = base64.b64decode(pack["blob"])
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / name).write_bytes(raw)
+    out = {k: v for k, v in pack.items() if k != "blob"}
+    out["url"] = f"{name}?v={hashlib.sha1(raw).hexdigest()[:8]}"
+    return out
+
+
 def write_library(lib: dict, out: Path, rig: Rig, title: str = "ASL signs and alphabet",
-                  template: Path = TEMPLATE_PATH, nav: str = "") -> Path:
+                  template: Path = TEMPLATE_PATH, nav: str = "", split: bool = False) -> Path:
+    body = body_json()
+    if split:
+        lib = split_blob(lib, Path(out).parent, "signs.bin")
+        if body != "null":
+            body = json.dumps(split_blob(json.loads(body), Path(out).parent, "body.bin"), separators=(",", ":"))
     html = template.read_text(encoding="utf-8").replace("<!--NAV-->", nav)
     if "/*ENGINE*/" in html:
         player = TEMPLATE_PATH.read_text(encoding="utf-8")
@@ -131,7 +147,7 @@ def write_library(lib: dict, out: Path, rig: Rig, title: str = "ASL signs and al
     html = (html.replace("/*TITLE*/", title)
                 .replace("/*RIG*/", json.dumps(pack_rig(rig), separators=(",", ":")))
                 .replace("/*TIMELINE*/", "null")
-                .replace("/*BODY*/", body_json())
+                .replace("/*BODY*/", body)
                 .replace("/*GLOSS*/", GLOSS_JS.read_text(encoding="utf-8"))
                 .replace("/*GLOSSAPI*/", json.dumps(os.environ.get("GLOSS_API", "").rstrip("/")))
                 .replace("/*LIBRARY*/", json.dumps(lib, separators=(",", ":"))))
@@ -158,7 +174,7 @@ def load_pack(path: Path = PACK_PATH) -> dict:
 def write_pages(lib: dict, rig: Rig, out: Path, web: Optional[Path] = None) -> List[Path]:
     pages = [write_library(lib, out, rig)]
     if web:
-        pages.append(write_library(lib, web / "index.html", rig, title="Signify", template=SITE_TEMPLATE))
+        pages.append(write_library(lib, web / "index.html", rig, title="Signify", template=SITE_TEMPLATE, split=True))
     return pages
 
 
