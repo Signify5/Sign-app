@@ -246,8 +246,6 @@ class Body:
         for k, bone in enumerate(("f0", "f1", "f2", "wr")):
             for letter, m in (("R", self.side == 0), ("L", self.side == 1)):
                 W[m, BI[f"{bone}{letter}"]] += (forearm * fw[:, k])[m]
-        # forearm weights on the centre line can only come from a side bone; assign by x
-        # split the lips cleanly at the mouth line so the jaw can open them
         box = (np.abs(V[:, 0]) < 0.62) & (V[:, 1] > 6.42) & (V[:, 1] < 6.78) & (V[:, 2] > 1.0)
         g = smoothstep(6.616, 6.598, V[:, 1]) * smoothstep(0.62, 0.30, np.abs(V[:, 0]))
         keep = np.maximum(W[:, BI["jaw"]], g)
@@ -277,12 +275,10 @@ def build():
     P = round_shoulders(P, T0, [sh_r, sh_r * [-1, 1, 1]])
     Nrm = vertex_normals(P, T0)
 
-    # ---- body
     Pb, Tb, Wb = compact(P, T0, Wd)
     used_idx = np.unique(T0)
     print("body:", len(Pb), "verts,", len(Tb), "tris")
 
-    # ---- shirt
     headw = Wd[:, 1] + Wd[:, 2] + Wd[:, BI["jaw"]]
     y_dm = V[:, 1]
     neckline = 5.95 - 0.15 * np.clip((V[:, 2] - 0.5) / 0.9, 0, 1)
@@ -302,7 +298,6 @@ def build():
     Ts_all = np.concatenate([Ts, np.array(strips, int).reshape(-1, 3)]) if strips else Ts
     Ps_, Ts_, Ws_ = compact(Pall, Ts_all, np.concatenate([Wd, Wd]))
     from scipy.spatial import cKDTree
-    # collar and cuff bands: distance to the neck / wrist boundary only (not the hem)
     bound_v = np.unique(np.array(bnd).ravel()) if bnd else np.array([], int)
     bound_v = bound_v[(V[bound_v, 1] > 2.0)]
     trim = cKDTree(Pall[bound_v]).query(Ps_)[0] if len(bound_v) else np.full(len(Ps_), 0.05)
@@ -310,7 +305,6 @@ def build():
     shirt_cav = cavity(Ps_, Ts_)
     print("shirt:", len(Ps_), "verts,", len(Ts_), "tris")
 
-    # ---- hair: smooth the head surface first, then cut it at the hairline so the edge is not jagged
     head_t = (Wd[:, 2] > 0.5)[T0].all(1) & (V[T0][:, :, 1].min(1) > 6.3)
     Ph0, Th0 = compact(P, T0[head_t])
     Hp, Th = loop_subdivide(Ph0, Th0, 2)
@@ -328,14 +322,11 @@ def build():
     hair_strands = build_hair_strands(Hp, Th, dh, B.s)
     print("hair:", len(Hp), "verts,", len(Th), "tris")
 
-    # ---- eyes (fitted to the base mesh with the .mhclo anchors)
     eyes = build_eyes(B)
 
-    # ---- joints / landmarks in scene space
     J = lambda name: B.scene(h.head(name))
     right = {"shoulder": J("upperarm01.R"), "elbow": J("lowerarm01.R"), "wrist": J("wrist.R")}
     eye_c = B.scene(np.array([-0.308, 7.284, 1.245]))
-    # rest orientation of the hand in the body frame: Vn = R0 (P - wrist)
     brows = build_brows(B, T0, P, Nrm)
 
     X = np.concatenate([Pb, Wb, (shirt_v | (V[:, 1] < HEM_DM + 0.4))[used_idx][:, None].astype(float)], 1)
@@ -429,7 +420,6 @@ def build_eyes(B):
         elif l.startswith("f "):
             F.append([[int(x) - 1 for x in t.split("/")[:2]] for t in l.split()[1:]])
     uvs = np.array(uvs)
-    # one vertex per (position, uv) pair so the texture coordinates survive
     key, vpos, vuv, tris = {}, [], [], []
     for f in F:
         ids = []
@@ -449,7 +439,6 @@ def build_eyes(B):
     img = recolor_eye(Image.open(MH / "eyes" / "materials" / "brown_eye.png").convert("RGBA").resize((256, 256), Image.LANCZOS))
     buf = io.BytesIO()
     img.save(buf, "PNG", optimize=True)
-    # the right eye mesh is stored once; the left eye mirrors it, so keep only the right one
     keep_v = right
     remap = -np.ones(len(vpos), int)
     remap[keep_v] = np.arange(keep_v.sum())
@@ -556,7 +545,6 @@ def build_mouth(B):
             h = (0.0105 if abs(cx) < 0.009 else 0.0090 if abs(cx) < 0.0165 else 0.0082) if upper else (0.0072 if abs(cx) < 0.009 else 0.0074)
             e = h * 0.5
             v, f = superquad(w * 0.5, e, 0.0019, 0.42, 0.42)
-            # taper the thickness toward the gum line and orient along the arch
             t = (v[:, 1] / e + 1) / 2
             depth = 1 - 0.35 * (t if upper else 1 - t)
             v[:, 2] *= depth
@@ -570,7 +558,6 @@ def build_mouth(B):
             V.append(v)
             C.append(col)
             F.append(f + sum(len(q) for q in V[:-1]))
-        # gum band along the arch above (upper) or below (lower) the teeth
         n = 26
         xs = np.linspace(-0.0385, 0.0385, n)
         rows = 5
@@ -589,7 +576,6 @@ def build_mouth(B):
             for i in range(n - 1):
                 a = r * n + i
                 gf += [[a, a + 1, a + n], [a + 1, a + n + 1, a + n]]
-        # a shadowed plate just behind the teeth so the gaps between them are not see-through
         pv, pc, pf = [], [], []
         top = my - 0.0036 + 0.0105 if upper else my - 0.0004
         bot = my - 0.0036 if upper else my - 0.0004 - 0.0074
@@ -612,13 +598,11 @@ def build_mouth(B):
     uV, uC, uF = arch(True)
     lV, lC, lF = arch(False)
 
-    # tongue: a flattened ellipsoid with a raised tip
     tv, tf = superquad(0.0155, 0.0062, 0.0215, 0.8, 0.8, nu=16, nv=10)
     tv = tv * [1, 1, 1] + np.array([0, my - 0.0072, 0.1185])
     ty = (tv[:, 2] - 0.1185) / 0.0215
     tv[:, 1] += 0.0025 * np.clip(ty, 0, 1) ** 2
     tc = np.tile(np.array([0.66, 0.24, 0.28]), (len(tv), 1)) * (0.8 + 0.2 * np.clip(tv[:, 1] - (my - 0.0134), 0, 0.012)[:, None] / 0.012)
-    # cavity: an inverted dark ellipsoid behind the teeth
     cv, cf = superquad(0.036, 0.024, 0.030, 0.9, 0.9, nu=16, nv=10)
     cv = cv + np.array([0, my - 0.0035, 0.1105])
     cf = cf[:, [0, 2, 1]]
@@ -664,7 +648,6 @@ def build_brows(B, T0, P, Nrm):
         return z, nn / np.linalg.norm(nn)
 
     eye = B.scene(np.array([-0.308, 7.284, 1.245]))
-    # brow centre line relative to the right eye centre, in decimetres: (inward x, up y, half width)
     pts = [(0.20, 0.210, 0.017), (0.15, 0.245, 0.025), (0.06, 0.280, 0.031), (-0.06, 0.288, 0.030),
            (-0.17, 0.268, 0.026), (-0.26, 0.232, 0.019), (-0.33, 0.185, 0.011)]
     NS = 6
@@ -681,7 +664,6 @@ def build_brows(B, T0, P, Nrm):
         if r is None:
             raise SystemExit(f"brow point missed the face {tk} {px} {py}")
         z, nn = r
-        # tangent of the centre line in screen space
         x2, y2, _ = cs(min(1, tk + 0.01))
         x1, y1, _ = cs(max(0, tk - 0.01))
         tg = np.array([(x2 - x1) * B.s, (y2 - y1) * B.s, 0.0])
@@ -701,7 +683,6 @@ def build_brows(B, T0, P, Nrm):
     print("brow:", len(verts), "verts")
     rng = np.random.default_rng(7)
 
-    # brow hairs: laid along the brow line, rising on the inner half and drooping at the tail
     items = []
     for _ in range(300):
         tk = rng.uniform(0, 1) ** 1.1
@@ -734,7 +715,6 @@ def build_brows(B, T0, P, Nrm):
     kv, kuv, kf = strand_mesh(items)
     print("brow hairs:", len(items))
 
-    # eyelashes along the lid margin (the same ellipse the skin shader darkens)
     lash = []
     for upper, count in ((True, 34),):
         for i in range(count):
