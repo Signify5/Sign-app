@@ -69,10 +69,10 @@ const step=async(s,k)=>{document.getElementById('msg').textContent=s;document.di
   await new Promise(r=>{requestAnimationFrame(()=>setTimeout(r));setTimeout(r,60);});};
 await step('Unpacking the signs',1);
 const TA={'<i2':Int16Array,'<u2':Uint16Array,'|u1':Uint8Array,'|i1':Int8Array};
-async function unpack(P){const bin=await new Response(new Blob([Uint8Array.from(atob(P.blob),c=>c.charCodeAt(0))]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+async function unpack(P){const gz=P.url?(await fetch(P.url)).body:new Blob([Uint8Array.from(atob(P.blob),c=>c.charCodeAt(0))]).stream();
+  const bin=await new Response(gz.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
   P.layout.forEach(([n,t,o,len])=>{P[n]=new TA[t](bin,o,len);});return P;}
-const HAND=await unpack(RIG);if(TL0)await unpack(TL0);if(LIB)await unpack(LIB);
-const BODY=BODYRIG?await unpack(BODYRIG):null;
+const [HAND,,,BODY]=await Promise.all([unpack(RIG),TL0?unpack(TL0):0,LIB?unpack(LIB):0,BODYRIG?unpack(BODYRIG):null]);
 HAND.verts=Float32Array.from(HAND.verts,x=>x*1e-5);HAND.skinW=Float32Array.from(HAND.skinW,x=>x/255);
 {const F=[];for(let f=0;f<HAND.faces.length;f+=3){const a=HAND.faces[f],b=HAND.faces[f+1],c=HAND.faces[f+2];
   if(Math.min(HAND.verts[a*3+1],HAND.verts[b*3+1],HAND.verts[c*3+1])>-0.026)F.push(a,b,c);}HAND.faces=F;}
