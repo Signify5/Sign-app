@@ -58,7 +58,7 @@ Then open http://localhost:8000 in **Chrome or Edge**.
 
 - The mic button uses the browser's own speech recognition. It only works in Chrome and Edge, and it sends your voice to Google or Microsoft to turn it into text.
 - Typing a sentence works in any browser.
-- The signer shows grammar with the face and head: eyebrows up for yes/no questions, furrowed for who/what/where questions, a head shake on NOT and NEVER, a nod on YES, plus blinks and a steady gaze. **Hands close-up** zooms the camera in on the hands for the whole sentence.
+- The signer shows grammar with the face and head: eyebrows up for yes/no questions, furrowed for who/what/where questions, a head shake on NOT and NEVER, a nod on YES, plus blinks and a steady gaze. The mouth has teeth, gums and a tongue, and a jaw that opens: signs with a known ASL mouth morpheme use it (BIG and LARGE "cha", FAT and FULL puffed cheeks, SMALL and THIN "oo", CARELESS and RECENT tongue out, FINISH "pah", HAPPY and FUNNY a smile), and other signs get light mouthing, one jaw pulse per syllable. **Hands close-up** zooms the camera in on the hands for the whole sentence.
 
 ### The signer's body
 
