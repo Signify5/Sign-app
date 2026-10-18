@@ -157,7 +157,7 @@ def round_shoulders(P, T, centres, radius=0.08, iters=10):
         avg = P.copy()
         for i in idx:
             avg[i] = P[list(nbr[i])].mean(0)
-        P = P + (avg - P) * (0.55 * w)[:, None]
+        P = P + (avg - P) * (0.45 * w)[:, None]
     return P
 
 
@@ -177,6 +177,7 @@ class Body:
         h = self.hand
         self.s = h.scale
         self.ms = (h.head("upperarm01.R") + h.head("upperarm01.L")) / 2
+        self.ms = self.ms * [1, 1, 0] + [0, 0, 0.14605]
         self.scene = lambda P: (np.asarray(P) - self.ms) * self.s
         quads = np.array(groups["body"])
         self.tris = np.concatenate([quads[:, [0, 1, 2]], quads[:, [0, 2, 3]]])
@@ -271,7 +272,7 @@ def build():
     Wd = B.weights()
     P = B.scene(V)
     Nrm = vertex_normals(P, T0)
-    P = P - Nrm * (0.022 * np.clip(B.breast, 0, 1))[:, None]
+    P = P - Nrm * (0.034 * np.clip(B.breast, 0, 1))[:, None]
     sh_r = B.scene(h.head("upperarm01.R"))
     P = round_shoulders(P, T0, [sh_r, sh_r * [-1, 1, 1]])
     Nrm = vertex_normals(P, T0)
@@ -290,6 +291,7 @@ def build():
     elbow = h.head("lowerarm01.R")
     d_elbow = np.minimum(np.linalg.norm(V - elbow, axis=1), np.linalg.norm(V - elbow * [-1, 1, 1], axis=1))
     off = off + 0.0042 * smoothstep(1.1, 0.2, d_elbow)
+    off = off + 0.006 * np.clip(B.breast, 0, 1)
     sh = drape(P + Nrm * off[:, None], P, Nrm, off, Ts, V)
     bnd = boundary_edges(Ts)
     strips = []
