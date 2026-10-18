@@ -527,15 +527,11 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
       {float fe=vHl+(h1(floor(vP.xy*3200.0))-0.5)*0.07-0.015;if(fe<0.0)discard;
        float a=atan(vP.x,vP.z-0.02);float s=h1(vec2(floor(a*210.0),floor(vP.y*900.0)))*0.6+h1(vec2(floor(a*55.0),floor(vP.y*140.0)))*0.4;
        diffuseColor.rgb*=0.55+0.9*s;}`);};
-  const strandGeoG=()=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(f3('gVerts'),3));
-    g.setAttribute('uv',new THREE.BufferAttribute(Float32Array.from(BODY.gUv,x=>x/65535),2));g.setIndex(new THREE.BufferAttribute(u16('gFaces'),1));g.computeVertexNormals();return g;};
   const hGeo=mkGeo('hVerts','hFaces');hGeo.setAttribute('hl',new THREE.BufferAttribute(Float32Array.from(BODY.hHl,x=>x/100),1));
   const hair=rigid(hGeo,hairMat);hair.castShadow=true;
-  const strandsMat=new THREE.MeshStandardMaterial({color:0x2e2018,roughness:0.5,metalness:0,side:THREE.DoubleSide,alphaTest:0.5,envMapIntensity:0.7});
-  strandsMat.onBeforeCompile=s=>{s.vertexShader='varying vec2 vUv2;\n'+s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvUv2=uv;');
-    s.fragmentShader='varying vec2 vUv2;\n'+s.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
-      {diffuseColor.rgb*=0.5+1.05*vUv2.y;diffuseColor.rgb+=vec3(0.02,0.012,0.006)*smoothstep(0.7,1.0,vUv2.y);diffuseColor.a=1.0-smoothstep(0.62,1.0,vUv2.x);}`);};
-  const hairStrands=rigid(strandGeoG(),strandsMat);hairStrands.castShadow=true;
+  const hairTex=new THREE.TextureLoader().load('data:image/png;base64,'+BODY.hairPng);hairTex.encoding=THREE.sRGBEncoding;hairTex.flipY=true;hairTex.anisotropy=4;
+  const hmGeo=new THREE.BufferGeometry();hmGeo.setAttribute('position',new THREE.BufferAttribute(f3('qVerts'),3));hmGeo.setAttribute('uv',new THREE.BufferAttribute(Float32Array.from(BODY.qUv,x=>x/65535),2));hmGeo.setIndex(new THREE.BufferAttribute(u16('qFaces'),1));hmGeo.computeVertexNormals();
+  const hairStrands=rigid(hmGeo,new THREE.MeshStandardMaterial({map:hairTex,color:0xd8c0a8,roughness:0.48,metalness:0,side:THREE.DoubleSide,envMapIntensity:0.8}));hairStrands.castShadow=true;
 
   const browGeo=(()=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(f3('rVerts'),3));
     g.setAttribute('uv',new THREE.BufferAttribute(Float32Array.from(BODY.rUv,x=>x/65535),2));g.setIndex(new THREE.BufferAttribute(u16('rFaces'),1));return g;})();
