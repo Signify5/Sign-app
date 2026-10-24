@@ -1,0 +1,3 @@
+word,signbank_cve_id,error
+claps,1949,HTTPError: HTTP Error 404: Not Found
+central america,3178,InvalidURL: URL can't contain control characters. '/dictionary/protected_media/glossvideo/ASL/CE/CENTRAL AMERICA-3178.mp4' (found at least ' ')
