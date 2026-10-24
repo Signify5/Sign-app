@@ -12,7 +12,11 @@ venv/
 
 models/
 
-datasets/
+datasets/*
+!datasets/expansion/
+!datasets/expansion/**
+!datasets/signbank/
+!datasets/signbank/**
 clips/
 
 exports/

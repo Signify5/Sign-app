@@ -10,7 +10,7 @@ It works in three steps, each in its own folder:
 | 2 | `text_to_gloss/` | Turns the English sentence into ASL gloss, the ASL word order (spaCy) |
 | 3 | `gloss_to_asl/` | Plays each gloss word as a sign on a 3D MakeHuman signer (body, face and hands) |
 
-The hand motion for all 1,973 signs is already in the repo, in `gloss_to_asl/assets/signs.json.gz`.
+The hand motion for all 1,973 signs is already in the repo, in `gloss_to_asl/assets/signs.json.gz`. English aliases and same-sign groups live in `gloss_to_asl/aliases.py` (and the optional `gloss_to_asl/assets/vocab_expansion.json`). A proposed list of 717 new Signbank words, A to D so far, (research only; no clips downloaded) is in `datasets/expansion/new_words_manifest.csv`.
 
 ## Setup and run
 
@@ -103,3 +103,5 @@ The code is MIT licensed (see `LICENSE`). The sign data has separate terms. Ever
   - The WLASL videos themselves (`datasets/`) and the full tracking output (`clips/`) stay out of git.
   - Credit: Li et al., "Word-level Deep Sign Language Recognition from Video", WACV 2020 (https://github.com/dxli94/WLASL).
 - **Sign checking:** ASL-LEX, used for research.
+- **Planned new signs:** ASL Signbank (CC BY-NC-SA 4.0) - see the expansion manifest under `datasets/expansion/`. Do not download those videos until maintainers approve the manifest.
+- **Synonym checks:** Princeton WordNet via NLTK.

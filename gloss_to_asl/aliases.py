@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 SAME_SIGN: List[Tuple[str, ...]] = [
@@ -225,6 +227,29 @@ ALIASES: Dict[str, Tuple[str, ...]] = {
 
 ALIASES.update(PAST)
 ALIASES.update(PLURAL)
+
+_EXPANSION = Path(__file__).resolve().parent / "assets" / "vocab_expansion.json"
+if _EXPANSION.is_file():
+    _data = json.loads(_EXPANSION.read_text(encoding="ascii"))
+    _have = {g for group in SAME_SIGN for g in group}
+    for group in _data.get("same_sign", []):
+        g = tuple(group)
+        if not g:
+            continue
+        if any(m in _have for m in g):
+            base = next((m for m in g if any(m in grp for grp in SAME_SIGN)), g[0])
+            for i, grp in enumerate(SAME_SIGN):
+                if base in grp:
+                    extra = tuple(m for m in g if m not in grp)
+                    if extra:
+                        SAME_SIGN[i] = grp + extra
+                        _have.update(extra)
+                    break
+        else:
+            SAME_SIGN.append(g)
+            _have.update(g)
+    for k, v in _data.get("aliases", {}).items():
+        ALIASES.setdefault(k, tuple(v))
 
 DROP = ["A", "AN", "THE", "IS", "AM", "ARE", "BE", "WAS", "WERE", "BEEN", "BEING",
         "OF", "AT", "DO", "DOES", "DID", "LET'S", "LETS", "IT", "IT'S", "SO", "DOING"]
