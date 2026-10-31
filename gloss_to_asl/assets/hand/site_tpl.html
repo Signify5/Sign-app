@@ -1,66 +1,43 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>/*TITLE*/ - Speech to ASL</title>
-<meta name="description" content="Speak or type English and watch 3D hands sign it in American Sign Language.">
 <meta name="color-scheme" content="light">
-<meta name="theme-color" content="#0F2A5C">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#F5F7F8;--surface:#FFFFFF;--ink:#14202B;--ink-2:#4E5B68;--mute:#6B7785;--rule:#DCE2E7;--accent:#2F5BD3;
-  --plate:#0F2A5C;--plate-ink:#D4E0F5;--plate-line:rgba(212,224,245,.3);--dot:#F2C14E;--live:#C2412D;
+  --bg:#F5F7F8;--surface:#FFFFFF;--ink:#14202B;--ink-2:#4E5B68;--mute:#7F8B98;--rule:#DCE2E7;--accent:#2F5BD3;
+  --plate:#0E3534;--plate-ink:#CFE3DF;--dot:#F2C14E;--live:#C2412D;
   --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
 }
 *{box-sizing:border-box}
+html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer;touch-action:manipulation}
-button:disabled,input:disabled{cursor:not-allowed}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-p{margin:0}
 
-.app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"brand" "view" "controls" "credits";min-height:100svh}
-.brand{grid-area:brand;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;padding:14px 16px}
-.brand b{font-size:19px;font-weight:600;letter-spacing:-.01em}
-.brand span{font-size:14px;color:var(--ink-2)}
-#view{grid-area:view;position:relative;height:54svh;min-height:300px;background:var(--plate);overflow:hidden}
-.controls{grid-area:controls;display:flex;flex-direction:column;gap:22px;padding:18px 16px 8px}
-@media (min-width:960px){
-  .app{grid-template-columns:minmax(340px,400px) minmax(0,1fr);grid-template-rows:auto auto 1fr;
-    grid-template-areas:"brand view" "controls view" "credits view";height:100svh;min-height:560px}
-  .brand{flex-direction:column;gap:2px;padding:28px 32px 0}
-  #view{height:auto;min-height:0}
-  .controls{padding:28px 32px 0;gap:28px}
-  }
+main{display:flex;flex-direction:column;gap:14px;max-width:1180px;min-height:100svh;margin:0 auto;padding:16px}
+@media (min-width:900px){main{padding:24px 32px}}
 
-.input{display:flex;flex-direction:column;gap:10px}
-#mic{display:flex;align-items:center;justify-content:center;gap:10px;height:52px;padding:0 22px;border:0;border-radius:26px;background:var(--accent);color:#fff;font-weight:500;font-size:17px;transition:background-color .15s}
-#mic:hover:not(:disabled){background:#2850BC}
+.top{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+#mic{display:flex;align-items:center;gap:10px;height:52px;padding:0 22px 0 18px;border:0;border-radius:26px;background:var(--accent);color:#fff;font-weight:500;font-size:17px}
+#mic:hover{background:#2850BC}
 #mic svg{width:20px;height:20px;flex:none}
 #mic[aria-pressed="true"]{background:var(--live)}
-#mic:disabled{background:var(--rule);color:var(--ink-2)}
-#say{display:flex;gap:8px}
+#mic:disabled{background:var(--rule);color:var(--ink-2);cursor:not-allowed}
+#say{display:flex;gap:8px;flex:1;min-width:220px}
 #text{flex:1;min-width:0;height:44px;padding:0 12px;background:var(--surface);border:1px solid var(--rule);border-radius:4px;font-size:16px}
 #text:focus-visible{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
-#text:disabled{background:transparent}
-.plain{height:44px;padding:0 16px;background:var(--surface);border:1px solid var(--rule);border-radius:4px;font-size:15px;font-weight:500}
-.plain:hover:not(:disabled){border-color:var(--ink-2)}
-.plain:disabled{color:var(--mute);background:transparent}
-#status{font-size:14px;color:var(--ink-2);min-height:1.5em}
+.plain{height:44px;padding:0 14px;background:var(--surface);border:1px solid var(--rule);border-radius:4px;font-size:15px}
+.plain:hover{border-color:var(--ink-2)}
+#status{width:100%;margin:0;font-size:14px;color:var(--ink-2);min-height:1.5em}
 
-.credits{grid-area:credits;align-self:end;margin:0;padding:16px 16px 24px;border-top:1px solid var(--rule);display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:baseline;font-size:13px;line-height:1.5;color:var(--ink-2)}
-.credits dt{font:12px var(--mono);color:var(--mute)}
-.credits dd{margin:0;min-width:0}
-.credits a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--rule);text-decoration-thickness:1.5px;text-underline-offset:3px}
-.credits a:hover{text-decoration-color:var(--accent)}
-@media (min-width:960px){.credits{margin:0 32px 24px;padding:16px 0 0}}
-.notation{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:baseline;margin:0}
+.notation{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;align-items:baseline;margin:0}
 .notation dt{font:12px var(--mono);color:var(--mute)}
 .notation dd{margin:0;min-width:0}
-#eng{font-size:clamp(22px,2.4vw,28px);line-height:1.3;letter-spacing:-.01em;min-height:1.3em;overflow-wrap:anywhere}
+#eng{font-size:clamp(22px,3vw,30px);line-height:1.3;letter-spacing:-.01em;min-height:1.3em;overflow-wrap:anywhere}
 #eng .live{color:var(--mute)}
 .drop{color:var(--mute);text-decoration:line-through;text-decoration-thickness:1.5px}
 .moved{color:var(--accent);text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:5px}
@@ -70,48 +47,48 @@ p{margin:0}
 #words span.on{color:var(--ink)}
 #words span.on.moved{color:var(--accent)}
 
+#view{position:relative;flex:1;min-height:360px;background:var(--plate);border-radius:6px;overflow:hidden}
 #stage{position:absolute;inset:0}
 #joints{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.views{position:absolute;top:12px;left:12px;display:flex;border:1px solid var(--plate-line);border-radius:4px;margin:0;padding:0}
+#msg{position:absolute;left:14px;bottom:12px;font:13px var(--mono);color:var(--plate-ink)}
+.views{position:absolute;top:10px;left:10px;display:flex;border:1px solid rgba(207,227,223,.35);border-radius:4px;margin:0;padding:0}
 .views legend{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .views label{position:relative;display:block}
 .views input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
-.views span{display:block;padding:9px 12px;font:12px/1 var(--mono);color:var(--plate-ink);border-radius:3px}
+.views span{display:block;padding:7px 12px;font:12px/1 var(--mono);color:var(--plate-ink);border-radius:3px}
 .views input:checked+span{background:var(--dot);color:var(--plate)}
 .views input:focus-visible+span{outline:2px solid var(--dot);outline-offset:1px}
-#tones{position:absolute;top:12px;right:12px;display:flex;gap:8px}
-#tones .tone{width:28px;height:28px;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.25)}
-#tones .tone:focus-visible,#replay:focus-visible,#reload:focus-visible{outline-color:var(--dot)}
-#zoom{position:absolute;right:12px;top:52px;height:36px;padding:0 12px;background:transparent;border:1px solid var(--plate-line);border-radius:4px;color:var(--plate-ink);font-size:13px}
-#zoom:hover{border-color:var(--plate-ink)}
-#zoom[aria-pressed=true]{background:var(--dot);color:var(--plate);border-color:var(--dot)}
-#zoom:focus-visible{outline:2px solid var(--dot);outline-offset:2px}
-#replay{position:absolute;right:12px;bottom:12px;height:40px;padding:0 16px;background:transparent;border:1px solid var(--plate-line);border-radius:4px;color:var(--plate-ink);font-size:14px}
-#replay:hover{border-color:var(--plate-ink)}
-.app:not([data-state="ready"]) :is(.views,#tones,#replay,#zoom){visibility:hidden}
+#tones{position:absolute;top:10px;right:10px;display:flex;gap:6px}
+#tones .tone{width:24px;height:24px;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.25)}
 
-#loader{position:absolute;left:24px;right:24px;top:50%;transform:translateY(-50%);max-width:380px;color:var(--plate-ink);transition:opacity .2s ease-out}
-@media (min-width:960px){#loader{left:48px}}
-#loader[hidden]{display:none}
-@media (max-width:959px){#tones{top:auto;bottom:12px;left:12px;right:auto}#zoom{top:12px}}
-#loader h2{margin:0 0 14px;font-size:20px;font-weight:500;color:#fff}
-.track{height:3px;background:var(--plate-line);border-radius:2px;overflow:hidden}
-#ldBar{display:block;height:100%;background:var(--dot);transform-origin:left;transform:scaleX(.03);transition:transform .4s ease-out}
-#ldBar.wait{animation:creep 14s cubic-bezier(.1,.6,.3,1) forwards}
-@keyframes creep{to{transform:scaleX(.22)}}
-#msg{margin-top:12px;font:13px/1.5 var(--mono)}
-#reload{margin-top:16px;height:40px;padding:0 16px;background:var(--dot);border:0;border-radius:4px;color:var(--plate);font-weight:500}
-.app[data-state="ready"] #loader{opacity:0;pointer-events:none}
-.app[data-state="error"] .track{display:none}
-
+nav.site{display:flex;align-items:baseline;gap:18px;font-size:15px}
+nav.site b{font-weight:600}
+nav.site a{color:var(--ink-2)}
+nav.site a:hover{color:var(--ink)}
+#credit{margin:0;font-size:12px;color:var(--mute)}
 .parts{display:none}
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style></head><body>
-<div class="app" id="app" data-state="loading">
-  <header class="brand"><b>Signify</b></header>
+<main>
+  <nav class="site"><b>Signify</b><a href="library.html">Sign library</a></nav>
+  <div class="top">
+    <button id="mic" type="button" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/></svg>
+      <span id="micLabel">Start listening</span></button>
+    <form id="say"><label class="sr" for="text">Or type a sentence</label>
+      <input id="text" autocomplete="off" spellcheck="false" placeholder="or type a sentence"><button class="plain">Sign</button></form>
+    <button id="replay" class="plain" type="button">Replay</button>
+    <p id="status" aria-live="polite"></p>
+  </div>
 
-  <section id="view" aria-label="Signer">
-    <div id="stage" role="img" aria-label="3D signer signing the ASL words"></div>
+  <dl class="notation">
+    <dt>english</dt><dd id="eng" aria-live="polite"></dd>
+    <dt>asl</dt><dd id="words"></dd>
+  </dl>
+  <p id="note" class="sr" aria-live="polite"></p>
+
+  <div id="view">
+    <div id="stage" role="img" aria-label="3D hands signing the ASL words above"></div>
     <canvas id="joints" aria-hidden="true"></canvas>
     <fieldset class="views"><legend>Show the hands as</legend>
       <label><input type="radio" name="view" value="hand" checked><span>Hand</span></label>
@@ -119,46 +96,17 @@ p{margin:0}
       <label><input type="radio" name="view" value="both"><span>Both</span></label>
     </fieldset>
     <span id="tones" role="group" aria-label="Skin tone"></span>
-    <button id="zoom" type="button" aria-pressed="false">Hands close-up</button>
-    <button id="replay" type="button">Replay</button>
-    <div id="loader" role="status" aria-live="polite">
-      <h2 id="ldTitle">Loading the hands</h2>
-      <div class="track" aria-hidden="true"><i id="ldBar" class="wait"></i></div>
-      <p id="msg">Downloading the hands and signs (about 4 MB)</p>
-      <button id="reload" type="button" hidden onclick="location.reload()">Reload the page</button>
-    </div>
-  </section>
-
-  <div class="controls">
-    <div class="input">
-      <button id="mic" type="button" aria-pressed="false" disabled>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v4M8 21h8"/></svg>
-        <span id="micLabel">Start listening</span></button>
-      <form id="say"><label class="sr" for="text">Type a sentence</label>
-        <input id="text" autocomplete="off" spellcheck="false" placeholder="or type a sentence" disabled><button class="plain" disabled>Sign</button></form>
-      <p id="status" aria-live="polite"></p>
-    </div>
-    <dl class="notation">
-      <dt>english</dt><dd id="eng" aria-live="polite"></dd>
-      <dt>asl</dt><dd id="words"></dd>
-    </dl>
-    <p id="note" class="sr" aria-live="polite"></p>
+    <div id="msg">Loading the hands...</div>
   </div>
 
-
-  <dl class="credits" aria-label="Credits">
-    <dt>body</dt><dd><a href="https://www.makehumancommunity.org/" target="_blank" rel="noopener">MakeHuman</a> base mesh, skeleton, eyes and hair (by culturalibre), CC0. Shirt, eyebrows and eyelashes are generated.</dd>
-    <dt>motion</dt><dd>Tracked from <a href="https://github.com/dxli94/WLASL" target="_blank" rel="noopener">WLASL</a> sign videos (Li et al., WACV 2020) and <a href="https://aslsignbank.com" target="_blank" rel="noopener">ASL Signbank</a> videos (CC BY-NC-SA 4.0), used for academic study.<span id="abcCredit" hidden> Letters are authored handshapes.</span></dd>
-    <dt>licenses</dt><dd>Code is MIT. <a href="https://github.com/Signify5/Sign-app/blob/main/NOTICE.md" target="_blank" rel="noopener">Full credits and terms</a>.</dd>
-    <dt>caution</dt><dd>Sentences you say or type are saved to help improve the translator.</dd>
-  </dl>
+  <p id="credit">Hands: MakeHuman (CC0). Motion: tracked from WLASL sign videos (academic use)<span id="abcCredit" hidden>; letters are authored handshapes</span>. Machine-translated; not checked by a Deaf signer.</p>
 
   <div class="parts" aria-hidden="true">
     <button id="play" tabindex="-1"></button><select id="speed" tabindex="-1"><option value="1" selected>1x</option></select>
     <button id="loop" tabindex="-1" aria-pressed="true"></button><div id="lib"></div><div id="presets"></div><div id="abc"></div>
     <input id="find" tabindex="-1"><span id="count"></span><div id="list"></div>
   </div>
-</div>
+</main>
 
 /*ENGINE*/
 <script>
@@ -169,20 +117,6 @@ const CURLY=new RegExp('['+String.fromCharCode(0x2018,0x2019)+'`]','g');
 const norm=s=>s.toUpperCase().replace(CURLY,"'").replace(/[^A-Z0-9' ]+/g,' ').split(/\s+/)
   .map(x=>x.replace(/^'+|'+$/g,'')).filter(Boolean);
 const tidy=s=>{if(s===s.toUpperCase())s=s.toLowerCase();return s.charAt(0).toUpperCase()+s.slice(1);};
-
-const app=$('app'),bar=$('ldBar'),SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-const progress=k=>{bar.classList.remove('wait');bar.style.transform='scaleX('+Math.max(k/4,.25)+')';};
-progress(1);
-document.addEventListener('loadstep',e=>progress(e.detail.k+1));
-function started(){if(app.dataset.state==='ready')return;progress(4);
-  setTimeout(()=>{app.dataset.state='ready';$('ldTitle').textContent='Ready';
-    $('text').disabled=false;$('say').querySelector('button').disabled=false;if(SR)$('mic').disabled=false;
-    setTimeout(()=>{$('loader').hidden=true;},300);},250);}
-document.addEventListener('playerready',started);
-if(window.player)started();
-document.addEventListener('playererror',()=>{app.dataset.state='error';$('ldTitle').textContent='The hands could not load';
-  $('msg').textContent='Check your internet connection, then reload. The page needs Chrome, Edge, Firefox or Safari with WebGL.';
-  $('reload').hidden=false;});
 
 function analyse(text,nlp){
   const g=toGloss(text,LIB,nlp),E=norm(text),st=E.map(()=>({drop:false,asl:-1,moved:false}));
@@ -214,26 +148,18 @@ document.addEventListener('signed',({detail:{text,nlp}})=>{
   if(!ready){ready=true;if($('loop').getAttribute('aria-pressed')==='true')$('loop').click();}
 });
 
-const GLOSS_API=/*GLOSSAPI*/;
-const voiced=new Set();
-window.fetchNlp=GLOSS_API?s=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),4000);
-  return fetch(GLOSS_API+'/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:s,source:voiced.delete(s)?'voice':'typed'}),signal:c.signal})
-    .then(r=>r.ok?r.json():Promise.reject()).then(j=>j.words).finally(()=>clearTimeout(t));}:null;
-if(GLOSS_API)fetch(GLOSS_API+'/health').catch(()=>{});
-
-const queue=[];let spoken=false,pending=false;
-const busy=()=>{const p=window.player;return !p||!p.tl||pending||spoken&&p.t<p.tl.n-1;};
-const next=()=>{spoken=true;pending=true;signText(queue.shift());};
-document.addEventListener('signed',()=>{pending=false;});
+const queue=[];let spoken=false;
+const busy=()=>{const p=window.player;return !p||!p.tl||spoken&&p.t<p.tl.n-1;};
+const next=()=>{spoken=true;signText(queue.shift());};
 setInterval(()=>{if(ready&&queue.length&&!busy())next();},100);
-const heard=s=>{s=s.trim();if(!s)return;voiced.add(s);queue.push(s);if(ready&&!busy())next();};
+const heard=s=>{s=s.trim();if(!s)return;queue.push(s);if(ready&&!busy())next();};
 $('say').addEventListener('submit',()=>{spoken=false;queue.length=0;});
 
-const mic=$('mic'),status=$('status');
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition,mic=$('mic'),status=$('status');
 let rec=null,on=false;
 function setOn(v){on=v;mic.setAttribute('aria-pressed',v);$('micLabel').textContent=v?'Stop listening':'Start listening';
   status.textContent=v?'Listening. Each sentence is signed when you pause.':'';}
-if(!SR){status.textContent='Speech input needs Chrome or Edge. You can still type a sentence.';}
+if(!SR){mic.disabled=true;status.textContent='Speech input needs Chrome or Edge. You can still type a sentence.';}
 else{
   rec=new SR();rec.lang='en-US';rec.continuous=true;rec.interimResults=true;
   rec.onresult=e=>{let live='';
@@ -259,11 +185,11 @@ function draw(){const dpr=Math.min(devicePixelRatio||1,2),w=cv.clientWidth,hgt=c
   if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(hgt*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(hgt*dpr);}
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,hgt);if(mode==='hand')return;
   P.hands.forEach(h=>{const q=h.lm.map(o=>{v.setFromMatrixPosition(o.matrixWorld).project(P.camera);return [(v.x+1)/2*w,(1-v.y)/2*hgt];});
-    ctx.lineWidth=2;ctx.lineCap='round';ctx.strokeStyle='#7396DC';ctx.beginPath();
+    ctx.lineWidth=2;ctx.lineCap='round';ctx.strokeStyle='#5E9F96';ctx.beginPath();
     EDGES.forEach(([a,c])=>{ctx.moveTo(q[a][0],q[a][1]);ctx.lineTo(q[c][0],q[c][1]);});ctx.stroke();
-    ctx.fillStyle='#F2C14E';ctx.strokeStyle='#0F2A5C';ctx.lineWidth=1.5;
+    ctx.fillStyle='#F2C14E';ctx.strokeStyle='#0E3534';ctx.lineWidth=1.5;
     q.forEach((p,i)=>{ctx.beginPath();ctx.arc(p[0],p[1],i?3.5:5,0,Math.PI*2);ctx.fill();ctx.stroke();});});}
-function setMode(m){mode=m;if(P){P.hands.forEach(h=>h.g.visible=m!=='joints');if(P.avatar)P.avatar.group.visible=m!=='joints';}}
+function setMode(m){mode=m;if(P)P.hands.forEach(h=>h.g.visible=m!=='joints');}
 document.querySelectorAll('input[name=view]').forEach(r=>r.onchange=()=>setMode(r.value));
 (function wait(){if(!window.player)return requestAnimationFrame(wait);
   P=window.player;landmarks(P);P.scene.onBeforeRender=draw;setMode(document.querySelector('input[name=view]:checked').value);})();
