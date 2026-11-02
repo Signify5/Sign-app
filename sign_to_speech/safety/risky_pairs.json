@@ -1,0 +1,975 @@
+{
+  "version": 1,
+  "status": "draft",
+  "review_required": true,
+  "source_manifest": "sign_to_speech/dataset/lexical_manifest.json",
+  "inventory_class_count": 2659,
+  "notes": "DRAFT for human review. Only glosses that exist as classes are listed. Any two members of a group are treated as a risky pair by decide.py. Severity drives the default margin threshold (see SAFETY.md).",
+  "severity_levels": [
+    "critical",
+    "high",
+    "medium"
+  ],
+  "default_margins": {
+    "critical": 0.25,
+    "high": 0.2,
+    "medium": 0.15
+  },
+  "pairs": [
+    {
+      "a": "yes",
+      "b": "no",
+      "severity": "critical",
+      "category": "polarity",
+      "note": "Affirmation vs negation"
+    },
+    {
+      "a": "yes",
+      "b": "not",
+      "severity": "critical",
+      "category": "polarity",
+      "note": "Affirmation vs negation particle"
+    },
+    {
+      "a": "no",
+      "b": "ok",
+      "severity": "critical",
+      "category": "polarity",
+      "note": "Refusal vs affirmation"
+    },
+    {
+      "a": "not",
+      "b": "ok",
+      "severity": "critical",
+      "category": "polarity",
+      "note": "Negation vs affirmation"
+    },
+    {
+      "a": "can",
+      "b": "cannot",
+      "severity": "critical",
+      "category": "negation",
+      "note": "Ability flip"
+    },
+    {
+      "a": "can",
+      "b": "not",
+      "severity": "critical",
+      "category": "negation",
+      "note": "Ability vs negation particle"
+    },
+    {
+      "a": "want",
+      "b": "don't want",
+      "severity": "critical",
+      "category": "negation",
+      "note": "Desire flip"
+    },
+    {
+      "a": "agree",
+      "b": "disagree",
+      "severity": "critical",
+      "category": "polarity",
+      "note": "Agreement flip"
+    },
+    {
+      "a": "accept",
+      "b": "reject",
+      "severity": "critical",
+      "category": "polarity",
+      "note": "Acceptance flip"
+    },
+    {
+      "a": "approve",
+      "b": "deny",
+      "severity": "critical",
+      "category": "polarity",
+      "note": "Approval flip"
+    },
+    {
+      "a": "allow",
+      "b": "forbid",
+      "severity": "critical",
+      "category": "negation",
+      "note": "Permission flip"
+    },
+    {
+      "a": "permit",
+      "b": "forbid",
+      "severity": "critical",
+      "category": "negation",
+      "note": "Permission flip"
+    },
+    {
+      "a": "true",
+      "b": "lie",
+      "severity": "critical",
+      "category": "polarity",
+      "note": "Truth flip"
+    },
+    {
+      "a": "true",
+      "b": "wrong",
+      "severity": "critical",
+      "category": "polarity",
+      "note": "Truth vs incorrect"
+    },
+    {
+      "a": "correct",
+      "b": "wrong",
+      "severity": "critical",
+      "category": "polarity",
+      "note": "Correctness flip"
+    },
+    {
+      "a": "real",
+      "b": "fake",
+      "severity": "high",
+      "category": "polarity",
+      "note": "Authenticity flip"
+    },
+    {
+      "a": "positive",
+      "b": "negative",
+      "severity": "critical",
+      "category": "polarity",
+      "note": "Sign flip"
+    },
+    {
+      "a": "with",
+      "b": "without",
+      "severity": "critical",
+      "category": "negation",
+      "note": "Presence flip"
+    },
+    {
+      "a": "possible",
+      "b": "impossible",
+      "severity": "critical",
+      "category": "negation",
+      "note": "Possibility flip"
+    },
+    {
+      "a": "always",
+      "b": "never",
+      "severity": "critical",
+      "category": "negation",
+      "note": "Frequency extremes"
+    },
+    {
+      "a": "all",
+      "b": "none",
+      "severity": "critical",
+      "category": "quantifier",
+      "note": "Universal vs empty"
+    },
+    {
+      "a": "everything",
+      "b": "nothing",
+      "severity": "critical",
+      "category": "quantifier",
+      "note": "Universal vs empty"
+    },
+    {
+      "a": "more",
+      "b": "no more",
+      "severity": "critical",
+      "category": "negation",
+      "note": "Continuation flip"
+    },
+    {
+      "a": "must",
+      "b": "maybe",
+      "severity": "high",
+      "category": "modality",
+      "note": "Obligation vs uncertainty"
+    },
+    {
+      "a": "good",
+      "b": "bad",
+      "severity": "critical",
+      "category": "valence",
+      "note": "Evaluation flip"
+    },
+    {
+      "a": "better",
+      "b": "worse",
+      "severity": "high",
+      "category": "valence",
+      "note": "Comparative evaluation flip"
+    },
+    {
+      "a": "like",
+      "b": "hate",
+      "severity": "high",
+      "category": "valence",
+      "note": "Preference flip"
+    },
+    {
+      "a": "love",
+      "b": "hate",
+      "severity": "high",
+      "category": "valence",
+      "note": "Affection flip"
+    },
+    {
+      "a": "happy",
+      "b": "sad",
+      "severity": "medium",
+      "category": "valence",
+      "note": "Affect flip"
+    },
+    {
+      "a": "beautiful",
+      "b": "ugly",
+      "severity": "medium",
+      "category": "valence",
+      "note": "Appearance flip"
+    },
+    {
+      "a": "hot",
+      "b": "cold",
+      "severity": "high",
+      "category": "state",
+      "note": "Temperature flip"
+    },
+    {
+      "a": "warm",
+      "b": "cool",
+      "severity": "medium",
+      "category": "state",
+      "note": "Temperature flip"
+    },
+    {
+      "a": "open",
+      "b": "close",
+      "severity": "high",
+      "category": "state",
+      "note": "State flip"
+    },
+    {
+      "a": "on",
+      "b": "off",
+      "severity": "high",
+      "category": "state",
+      "note": "State flip"
+    },
+    {
+      "a": "start",
+      "b": "stop",
+      "severity": "high",
+      "category": "state",
+      "note": "Action boundary flip"
+    },
+    {
+      "a": "full",
+      "b": "empty",
+      "severity": "medium",
+      "category": "state",
+      "note": "Fill flip"
+    },
+    {
+      "a": "up",
+      "b": "down",
+      "severity": "medium",
+      "category": "direction",
+      "note": "Vertical flip"
+    },
+    {
+      "a": "left",
+      "b": "right",
+      "severity": "high",
+      "category": "direction",
+      "note": "Lateral flip; also left vs right(correct) sense risk"
+    },
+    {
+      "a": "north",
+      "b": "south",
+      "severity": "medium",
+      "category": "direction",
+      "note": "Cardinal flip"
+    },
+    {
+      "a": "east",
+      "b": "west",
+      "severity": "medium",
+      "category": "direction",
+      "note": "Cardinal flip"
+    },
+    {
+      "a": "come",
+      "b": "go",
+      "severity": "medium",
+      "category": "motion",
+      "note": "Motion direction flip"
+    },
+    {
+      "a": "arrive",
+      "b": "depart",
+      "severity": "medium",
+      "category": "motion",
+      "note": "Arrival flip"
+    },
+    {
+      "a": "enter",
+      "b": "leave",
+      "severity": "medium",
+      "category": "motion",
+      "note": "Entry flip"
+    },
+    {
+      "a": "push",
+      "b": "pull",
+      "severity": "medium",
+      "category": "motion",
+      "note": "Force direction flip"
+    },
+    {
+      "a": "give",
+      "b": "take",
+      "severity": "high",
+      "category": "transfer",
+      "note": "Transfer direction flip"
+    },
+    {
+      "a": "buy",
+      "b": "sell",
+      "severity": "high",
+      "category": "transfer",
+      "note": "Transaction flip"
+    },
+    {
+      "a": "remember",
+      "b": "forget",
+      "severity": "high",
+      "category": "cognition",
+      "note": "Memory flip"
+    },
+    {
+      "a": "find",
+      "b": "lose",
+      "severity": "high",
+      "category": "outcome",
+      "note": "Possession outcome flip"
+    },
+    {
+      "a": "win",
+      "b": "lose",
+      "severity": "high",
+      "category": "outcome",
+      "note": "Contest outcome flip"
+    },
+    {
+      "a": "pass",
+      "b": "fail",
+      "severity": "high",
+      "category": "outcome",
+      "note": "Exam/result flip"
+    },
+    {
+      "a": "succeed",
+      "b": "fail",
+      "severity": "high",
+      "category": "outcome",
+      "note": "Success flip"
+    },
+    {
+      "a": "add",
+      "b": "subtract",
+      "severity": "high",
+      "category": "math",
+      "note": "Arithmetic flip"
+    },
+    {
+      "a": "plus",
+      "b": "minus",
+      "severity": "high",
+      "category": "math",
+      "note": "Sign flip"
+    },
+    {
+      "a": "increase",
+      "b": "decrease",
+      "severity": "high",
+      "category": "math",
+      "note": "Magnitude direction flip"
+    },
+    {
+      "a": "more",
+      "b": "less",
+      "severity": "high",
+      "category": "quantifier",
+      "note": "Quantity flip"
+    },
+    {
+      "a": "big",
+      "b": "small",
+      "severity": "medium",
+      "category": "size",
+      "note": "Size flip"
+    },
+    {
+      "a": "fast",
+      "b": "slow",
+      "severity": "medium",
+      "category": "manner",
+      "note": "Speed flip"
+    },
+    {
+      "a": "early",
+      "b": "late",
+      "severity": "medium",
+      "category": "time",
+      "note": "Timing flip"
+    },
+    {
+      "a": "before",
+      "b": "after",
+      "severity": "high",
+      "category": "time",
+      "note": "Order flip"
+    },
+    {
+      "a": "day",
+      "b": "night",
+      "severity": "medium",
+      "category": "time",
+      "note": "Time-of-day flip"
+    },
+    {
+      "a": "today",
+      "b": "tomorrow",
+      "severity": "high",
+      "category": "time",
+      "note": "Day reference flip"
+    },
+    {
+      "a": "yesterday",
+      "b": "tomorrow",
+      "severity": "high",
+      "category": "time",
+      "note": "Day reference flip"
+    },
+    {
+      "a": "now",
+      "b": "later",
+      "severity": "medium",
+      "category": "time",
+      "note": "Immediacy flip"
+    },
+    {
+      "a": "here",
+      "b": "there",
+      "severity": "high",
+      "category": "deixis",
+      "note": "Place deixis flip"
+    },
+    {
+      "a": "this",
+      "b": "that",
+      "severity": "high",
+      "category": "deixis",
+      "note": "Demonstrative flip"
+    },
+    {
+      "a": "inside",
+      "b": "outside",
+      "severity": "medium",
+      "category": "space",
+      "note": "Interior flip"
+    },
+    {
+      "a": "hello",
+      "b": "goodbye",
+      "severity": "medium",
+      "category": "social",
+      "note": "Greeting flip"
+    },
+    {
+      "a": "rich",
+      "b": "poor",
+      "severity": "medium",
+      "category": "status",
+      "note": "Wealth flip"
+    },
+    {
+      "a": "strong",
+      "b": "weak",
+      "severity": "medium",
+      "category": "status",
+      "note": "Strength flip"
+    },
+    {
+      "a": "safe",
+      "b": "dangerous",
+      "severity": "critical",
+      "category": "safety",
+      "note": "Safety flip"
+    },
+    {
+      "a": "safe",
+      "b": "danger",
+      "severity": "critical",
+      "category": "safety",
+      "note": "Safety flip"
+    },
+    {
+      "a": "help",
+      "b": "hurt",
+      "severity": "critical",
+      "category": "safety",
+      "note": "Aid vs harm"
+    },
+    {
+      "a": "live",
+      "b": "die",
+      "severity": "critical",
+      "category": "medical",
+      "note": "Life status flip"
+    },
+    {
+      "a": "live",
+      "b": "dead",
+      "severity": "critical",
+      "category": "medical",
+      "note": "Life status flip"
+    },
+    {
+      "a": "birth",
+      "b": "death",
+      "severity": "critical",
+      "category": "medical",
+      "note": "Life event flip"
+    },
+    {
+      "a": "dead",
+      "b": "die",
+      "severity": "high",
+      "category": "medical",
+      "note": "Closely related death glosses; still treat as risky near-miss"
+    },
+    {
+      "a": "death",
+      "b": "die",
+      "severity": "high",
+      "category": "medical",
+      "note": "Closely related death glosses"
+    },
+    {
+      "a": "me",
+      "b": "you",
+      "severity": "critical",
+      "category": "person",
+      "note": "1st vs 2nd person"
+    },
+    {
+      "a": "my",
+      "b": "your",
+      "severity": "critical",
+      "category": "person",
+      "note": "Possessive person flip"
+    },
+    {
+      "a": "myself",
+      "b": "yourself",
+      "severity": "high",
+      "category": "person",
+      "note": "Reflexive person flip"
+    },
+    {
+      "a": "his",
+      "b": "her",
+      "severity": "critical",
+      "category": "person",
+      "note": "Gendered possessive flip"
+    },
+    {
+      "a": "we",
+      "b": "they",
+      "severity": "high",
+      "category": "person",
+      "note": "1st-pl vs 3rd-pl"
+    },
+    {
+      "a": "our",
+      "b": "their",
+      "severity": "high",
+      "category": "person",
+      "note": "Possessive group flip"
+    },
+    {
+      "a": "boy",
+      "b": "girl",
+      "severity": "high",
+      "category": "gender",
+      "note": "Gendered person flip"
+    },
+    {
+      "a": "man",
+      "b": "woman",
+      "severity": "high",
+      "category": "gender",
+      "note": "Gendered person flip"
+    },
+    {
+      "a": "husband",
+      "b": "wife",
+      "severity": "high",
+      "category": "kinship",
+      "note": "Spouse flip"
+    },
+    {
+      "a": "mother",
+      "b": "father",
+      "severity": "high",
+      "category": "kinship",
+      "note": "Parent flip"
+    },
+    {
+      "a": "mom",
+      "b": "dad",
+      "severity": "high",
+      "category": "kinship",
+      "note": "Parent flip"
+    },
+    {
+      "a": "son",
+      "b": "daughter",
+      "severity": "high",
+      "category": "kinship",
+      "note": "Child flip"
+    },
+    {
+      "a": "brother",
+      "b": "sister",
+      "severity": "high",
+      "category": "kinship",
+      "note": "Sibling flip"
+    },
+    {
+      "a": "doctor",
+      "b": "nurse",
+      "severity": "medium",
+      "category": "medical",
+      "note": "Care role confusion"
+    },
+    {
+      "a": "need",
+      "b": "want",
+      "severity": "medium",
+      "category": "modality",
+      "note": "Need vs desire (care contexts)"
+    },
+    {
+      "a": "one",
+      "b": "zero",
+      "severity": "critical",
+      "category": "numbers",
+      "note": "Count vs none"
+    },
+    {
+      "a": "one",
+      "b": "none",
+      "severity": "critical",
+      "category": "numbers",
+      "note": "Count vs none"
+    },
+    {
+      "a": "zero",
+      "b": "none",
+      "severity": "high",
+      "category": "numbers",
+      "note": "Null quantity near-synonyms still risky in dosage contexts"
+    },
+    {
+      "a": "none",
+      "b": "nothing",
+      "severity": "medium",
+      "category": "numbers",
+      "note": "Null quantity near-synonyms"
+    },
+    {
+      "a": "nothing",
+      "b": "zilch",
+      "severity": "medium",
+      "category": "numbers",
+      "note": "Null quantity near-synonyms"
+    }
+  ],
+  "groups": [
+    {
+      "id": "numbers_quantity",
+      "severity": "high",
+      "category": "numbers",
+      "note": "Any two distinct members are a risky confusion (dosage, age, quantity, money).",
+      "members": [
+        "zero",
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight",
+        "nine",
+        "ten",
+        "eleven",
+        "twelve",
+        "thirteen",
+        "fourteen",
+        "fifteen",
+        "sixteen",
+        "seventeen",
+        "eighteen",
+        "nineteen",
+        "fifty",
+        "sixty",
+        "seventy",
+        "eighty",
+        "ninety",
+        "hundred",
+        "thousand",
+        "million",
+        "half",
+        "none",
+        "nothing",
+        "zilch"
+      ]
+    }
+  ],
+  "missing_wanted": [
+    {
+      "concept": "alive",
+      "wanted_with": [
+        "dead"
+      ],
+      "reason": "life-status polarity; only dead/die/live present"
+    },
+    {
+      "concept": "healthy",
+      "wanted_with": [
+        "sick"
+      ],
+      "reason": "health polarity"
+    },
+    {
+      "concept": "i",
+      "wanted_with": [
+        "you"
+      ],
+      "reason": "1st-person subject pronoun; inventory has me/my but not i"
+    },
+    {
+      "concept": "he",
+      "wanted_with": [
+        "she"
+      ],
+      "reason": "gendered 3rd-person subject; inventory has his/her/she"
+    },
+    {
+      "concept": "male",
+      "wanted_with": [
+        "female"
+      ],
+      "reason": "sex/gender label pair; female present, male absent"
+    },
+    {
+      "concept": "unable",
+      "wanted_with": [
+        "able"
+      ],
+      "reason": "ability polarity"
+    },
+    {
+      "concept": "worst",
+      "wanted_with": [
+        "best"
+      ],
+      "reason": "superlative valence; best present"
+    },
+    {
+      "concept": "false",
+      "wanted_with": [
+        "true"
+      ],
+      "reason": "truth polarity; lie/wrong used instead"
+    },
+    {
+      "concept": "twenty",
+      "wanted_with": [
+        "numbers group"
+      ],
+      "reason": "decade numeral missing from inventory"
+    },
+    {
+      "concept": "thirty",
+      "wanted_with": [
+        "numbers group"
+      ],
+      "reason": "decade numeral missing from inventory"
+    },
+    {
+      "concept": "forty",
+      "wanted_with": [
+        "numbers group"
+      ],
+      "reason": "decade numeral missing from inventory"
+    },
+    {
+      "concept": "poison",
+      "wanted_with": [
+        "medicine",
+        "pill"
+      ],
+      "reason": "medical harm confusion"
+    },
+    {
+      "concept": "overdose",
+      "wanted_with": [
+        "medicine",
+        "pill"
+      ],
+      "reason": "medical harm confusion"
+    },
+    {
+      "concept": "suicide",
+      "wanted_with": [
+        "kill",
+        "die"
+      ],
+      "reason": "self-harm medical/safety"
+    },
+    {
+      "concept": "ambulance",
+      "wanted_with": [
+        "hospital",
+        "emergency"
+      ],
+      "reason": "emergency care"
+    },
+    {
+      "concept": "won't",
+      "wanted_with": [
+        "will"
+      ],
+      "reason": "modality negation"
+    },
+    {
+      "concept": "dislike",
+      "wanted_with": [
+        "like"
+      ],
+      "reason": "preference polarity; hate used instead"
+    },
+    {
+      "concept": "nobody",
+      "wanted_with": [
+        "someone",
+        "everyone"
+      ],
+      "reason": "person quantifier"
+    },
+    {
+      "concept": "anyone",
+      "wanted_with": [
+        "someone"
+      ],
+      "reason": "person quantifier"
+    },
+    {
+      "concept": "anybody",
+      "wanted_with": [
+        "someone"
+      ],
+      "reason": "person quantifier"
+    },
+    {
+      "concept": "somebody",
+      "wanted_with": [
+        "someone"
+      ],
+      "reason": "person quantifier synonym"
+    },
+    {
+      "concept": "these",
+      "wanted_with": [
+        "those",
+        "this"
+      ],
+      "reason": "plural demonstrative"
+    },
+    {
+      "concept": "those",
+      "wanted_with": [
+        "these",
+        "that"
+      ],
+      "reason": "plural demonstrative"
+    },
+    {
+      "concept": "least",
+      "wanted_with": [
+        "most"
+      ],
+      "reason": "quantity extreme"
+    },
+    {
+      "concept": "exclude",
+      "wanted_with": [
+        "include"
+      ],
+      "reason": "inclusion polarity"
+    },
+    {
+      "concept": "exit",
+      "wanted_with": [
+        "enter"
+      ],
+      "reason": "entry polarity; leave used instead"
+    },
+    {
+      "concept": "begin",
+      "wanted_with": [
+        "end",
+        "start"
+      ],
+      "reason": "boundary synonym for start"
+    },
+    {
+      "concept": "allergic",
+      "wanted_with": [
+        "allergy"
+      ],
+      "reason": "allergy adjective form"
+    },
+    {
+      "concept": "perhaps",
+      "wanted_with": [
+        "maybe",
+        "must"
+      ],
+      "reason": "uncertainty synonym"
+    },
+    {
+      "concept": "us",
+      "wanted_with": [
+        "them"
+      ],
+      "reason": "1st-pl object; we/our present"
+    }
+  ],
+  "draft_stats": {
+    "pair_count": 97,
+    "number_group_size": 32,
+    "skipped_incomplete_pairs": [
+      {
+        "a": "them",
+        "b": "us",
+        "a_in": true,
+        "b_in": false
+      }
+    ],
+    "missing_number_members": []
+  }
+}

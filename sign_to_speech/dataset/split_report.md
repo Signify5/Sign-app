@@ -1,0 +1,201 @@
+# Sign-to-speech dataset split report
+
+Seed: 42. Test signer frac: 0.15. Val signer frac: 0.15. Too-few threshold: < 5 clips.
+
+## Lexical
+
+- Classes: 2659
+- Clips: 9295
+- Clips per split: {'train': 6520, 'test': 1413, 'val': 1362}
+- Clips per source: {'wlasl': 8611, 'signbank': 684}
+- Distinct WLASL signers per split: {'test': 12, 'train': 53, 'val': 12}
+- Signbank train-only clips: 684
+- Classes with too few clips (< 5): 1852
+- Classes with no held-out (test) signer coverage: 1564
+
+### Classes with too few clips
+
+- a lot: 3
+- abdomen: 3
+- abhor: 1
+- able: 3
+- above: 3
+- access: 1
+- accomplish: 3
+- accordion: 1
+- account: 1
+- accountant: 3
+- accumulate: 1
+- accustomed: 1
+- acquiesce: 1
+- acquire: 1
+- act: 3
+- action: 3
+- active: 3
+- activity: 4
+- actor: 4
+- adapt: 4
+- addict: 1
+- address: 3
+- adjective: 3
+- adjust: 3
+- admire: 3
+- admit: 4
+- adopt: 3
+- advanced: 3
+- advantage: 4
+- adverb: 3
+- advertise: 1
+- affect: 4
+- affection: 1
+- afghanistan: 1
+- afraid: 3
+- against: 3
+- agency: 1
+- agenda: 4
+- aggressive: 1
+- ago: 4
+- agree: 3
+- agreement: 4
+- ahead: 3
+- ahem: 1
+- aid: 3
+- aim: 4
+- alarm: 4
+- alaska: 1
+- albania: 1
+- alcohol: 3
+- algebra: 3
+- align: 1
+- all day: 3
+- alligator: 3
+- allover: 1
+- almost: 4
+- alphabet: 3
+- also: 4
+- alternative: 1
+- amazing: 3
+- american indian: 1
+- amputate: 3
+- anatomy: 3
+- and: 4
+- angle: 4
+- anniversary: 3
+- annotate: 1
+- announce: 3
+- annoy: 4
+- another: 4
+- anthem: 1
+- antlers: 1
+- anxiety: 1
+- anxious: 1
+- any: 3
+- anymore: 1
+- anyway: 3
+- apart: 3
+- apartment: 4
+- appetite: 3
+- ... and 1772 more (full list in split_report.json)
+
+### Classes with no held-out signer coverage
+
+These classes have zero clips in the test split under the signer-disjoint assignment (cannot contribute to the held-out 95% gate as written).
+
+- a lot (3 clips)
+- abhor (1 clips)
+- able (3 clips)
+- accent (5 clips)
+- access (1 clips)
+- accordion (1 clips)
+- account (1 clips)
+- accumulate (1 clips)
+- accustomed (1 clips)
+- acquiesce (1 clips)
+- acquire (1 clips)
+- across (6 clips)
+- adapt (4 clips)
+- addict (1 clips)
+- address (3 clips)
+- adjust (3 clips)
+- adult (6 clips)
+- advanced (3 clips)
+- advantage (4 clips)
+- advertise (1 clips)
+- affection (1 clips)
+- afghanistan (1 clips)
+- agency (1 clips)
+- agenda (4 clips)
+- aggressive (1 clips)
+- ahem (1 clips)
+- alarm (4 clips)
+- alaska (1 clips)
+- albania (1 clips)
+- alcohol (3 clips)
+- align (1 clips)
+- all day (3 clips)
+- allover (1 clips)
+- alphabet (3 clips)
+- alternative (1 clips)
+- american indian (1 clips)
+- anatomy (3 clips)
+- angle (4 clips)
+- annotate (1 clips)
+- annoy (4 clips)
+- anthem (1 clips)
+- antlers (1 clips)
+- anxiety (1 clips)
+- anxious (1 clips)
+- anymore (1 clips)
+- apostrophe (5 clips)
+- appetite (3 clips)
+- apply (1 clips)
+- appreciate (3 clips)
+- approximate (1 clips)
+- archeology (1 clips)
+- archery (3 clips)
+- argentina (1 clips)
+- arrest (5 clips)
+- asia (6 clips)
+- asl (3 clips)
+- assembly (1 clips)
+- assist (3 clips)
+- assistant (3 clips)
+- astronaut (1 clips)
+- athlete (1 clips)
+- auction (3 clips)
+- audiology (3 clips)
+- austin (1 clips)
+- austria (4 clips)
+- autism (1 clips)
+- automatic (1 clips)
+- average (3 clips)
+- award (2 clips)
+- away game (1 clips)
+- babysitter (3 clips)
+- bachelor (1 clips)
+- back (4 clips)
+- background (5 clips)
+- backpack (6 clips)
+- bag (1 clips)
+- baltimore (1 clips)
+- bandage (1 clips)
+- bankrupt (1 clips)
+- banter (1 clips)
+- ... and 1484 more (full list in split_report.json)
+
+## Fingerspell letters (separate manifest)
+
+- Letter classes present: 21 (a, b, d, e, f, g, h, i, j, k, m, n, o, p, q, r, s, t, u, v, w)
+- Missing A-Z: c, l, x, y, z
+- Clips: 64
+- Clips per split: {'train': 45, 'val': 19}
+- Signers per split: {'train': 4, 'val': 2}
+- Clips per class: {'a': 3, 'b': 3, 'd': 3, 'e': 3, 'f': 3, 'g': 3, 'h': 4, 'i': 3, 'j': 3, 'k': 3, 'm': 3, 'n': 3, 'o': 3, 'p': 3, 'q': 3, 'r': 3, 's': 3, 't': 3, 'u': 3, 'v': 3, 'w': 3}
+
+## Notes
+
+- Split is signer-disjoint over WLASL signer_id values.
+- Signbank clips have signer_id null and are train-only.
+- Single-letter WLASL glosses are excluded from the lexical manifest and listed only in letters_manifest.json.
+- Only clips whose local video file exists are indexed.
+- Held-out test signers are the 95% gate set (seed=42).

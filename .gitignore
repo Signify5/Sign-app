@@ -19,6 +19,11 @@ datasets/*
 !datasets/signbank/**
 clips/
 
+# Sign->Speech landmark caches and derived features (regenerable, large).
+sign_to_speech/landmarks/cache/
+sign_to_speech/landmarks/features/
+sign_to_speech/landmarks/extract_report.json
+
 exports/
 recordings/
 
