@@ -30,6 +30,11 @@ def normalize_gloss(gloss: str) -> str:
     return gloss.strip().upper()
 
 
+# Clips chosen by hand when the quality ranking picks the wrong sign location.
+# UNCLE: the top-ranked clip is signed at chin height (like AUNT); this one is at the forehead.
+PREFERRED = {"uncle": "wlasl-60457"}
+
+
 class ClipIndex:
 
     def __init__(self, clips: Iterable[Clip], letters: Optional[Dict[str, Clip]] = None) -> None:
@@ -48,6 +53,13 @@ class ClipIndex:
 
         for group in self._by_gloss.values():
             group.sort(key=rank)
+
+        for gloss, clip_id in PREFERRED.items():
+            group = self._by_gloss.get(normalize_gloss(gloss), [])
+            pick = next((c for c in group if c.clip_id == clip_id), None)
+            if pick:
+                group.remove(pick)
+                group.insert(0, pick)
 
         self._letters = {k.upper(): v for k, v in (letters or {}).items()}
 

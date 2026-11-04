@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import gzip
+import hashlib
 import json
+import os
 import webbrowser
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence
@@ -12,7 +15,7 @@ import numpy as np
 from gloss_to_asl.aliases import DROP, resolve_aliases
 from gloss_to_asl.clips import ClipIndex, ClipIndexError
 from gloss_to_asl.fingerspell import ALPHABET, CHANGE_S, DOUBLE_SHIFT_M, HOLD_S, PATH_S, letter_frames, letter_pose
-from gloss_to_asl.hand3d import HANDS, MIRROR, TEMPLATE_PATH, Pose, Rig, Tracks, _blob, pack_rig, rest_pose, sign_track
+from gloss_to_asl.hand3d import HANDS, MIRROR, TEMPLATE_PATH, Pose, Rig, Tracks, _blob, body_json, pack_rig, rest_pose, sign_track
 from gloss_to_asl.motion import FPS, TRANSITION_S, Motion, MotionError
 
 LIB_FPS = 15.0
@@ -121,8 +124,22 @@ def pack_library(rig: Rig, index: ClipIndex, glosses: Sequence[str],
     }
 
 
+def split_blob(pack: dict, folder: Path, name: str) -> dict:
+    raw = base64.b64decode(pack["blob"])
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / name).write_bytes(raw)
+    out = {k: v for k, v in pack.items() if k != "blob"}
+    out["url"] = f"{name}?v={hashlib.sha1(raw).hexdigest()[:8]}"
+    return out
+
+
 def write_library(lib: dict, out: Path, rig: Rig, title: str = "ASL signs and alphabet",
-                  template: Path = TEMPLATE_PATH, nav: str = "") -> Path:
+                  template: Path = TEMPLATE_PATH, nav: str = "", split: bool = False) -> Path:
+    body = body_json()
+    if split:
+        lib = split_blob(lib, Path(out).parent, "signs.bin")
+        if body != "null":
+            body = json.dumps(split_blob(json.loads(body), Path(out).parent, "body.bin"), separators=(",", ":"))
     html = template.read_text(encoding="utf-8").replace("<!--NAV-->", nav)
     if "/*ENGINE*/" in html:
         player = TEMPLATE_PATH.read_text(encoding="utf-8")
@@ -130,7 +147,9 @@ def write_library(lib: dict, out: Path, rig: Rig, title: str = "ASL signs and al
     html = (html.replace("/*TITLE*/", title)
                 .replace("/*RIG*/", json.dumps(pack_rig(rig), separators=(",", ":")))
                 .replace("/*TIMELINE*/", "null")
+                .replace("/*BODY*/", body)
                 .replace("/*GLOSS*/", GLOSS_JS.read_text(encoding="utf-8"))
+                .replace("/*GLOSSAPI*/", json.dumps(os.environ.get("GLOSS_API", "").rstrip("/")))
                 .replace("/*LIBRARY*/", json.dumps(lib, separators=(",", ":"))))
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -146,15 +165,16 @@ def save_pack(lib: dict, path: Path = PACK_PATH) -> Path:
 
 def load_pack(path: Path = PACK_PATH) -> dict:
     with gzip.open(path, "rt", encoding="utf-8") as fh:
-        return json.load(fh)
+        lib = json.load(fh)
+    lib["alias"], _, lib["tags"] = resolve_aliases(lib["signs"], lib["nouns"])
+    lib["drop"] = DROP
+    return lib
 
 
 def write_pages(lib: dict, rig: Rig, out: Path, web: Optional[Path] = None) -> List[Path]:
     pages = [write_library(lib, out, rig)]
     if web:
-        pages += [write_library(lib, web / "index.html", rig, title="Signify", template=SITE_TEMPLATE),
-                  write_library(lib, web / "library.html", rig, title="Sign library",
-                                nav='<nav class="nav"><a href="/">Back to speech to ASL</a></nav>')]
+        pages.append(write_library(lib, web / "index.html", rig, title="Signify", template=SITE_TEMPLATE, split=True))
     return pages
 
 
@@ -179,7 +199,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     ap.add_argument("-o", "--out", type=Path, default=Path("exports") / "library.html")
     ap.add_argument("--limit", type=int, help="only the first N glosses (for a quick test build)")
     ap.add_argument("--open", action="store_true", help="open the page in the browser")
-    ap.add_argument("--web", type=Path, help="also write the website into this folder: index.html (mic page) and library.html")
+    ap.add_argument("--web", type=Path, help="also write the website (index.html) into this folder")
     ap.add_argument("--keep-failed", action="store_true", help="also sign glosses that fail a serious sign check")
     ap.add_argument("--from-pack", action="store_true",
                     help=f"build from the signs kept in git ({PACK_PATH.name}) even when clips/ exists")

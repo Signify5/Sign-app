@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "status": "not_generated",
+  "review_required": false,
+  "note": "PLACEHOLDER. Section 4 training has not run, so there are no held-out per-class accuracies yet. Do not treat classes as enabled. Run sign_to_speech/safety/build_enable_list.py after a per-class accuracy file exists. See SAFETY.md for the expected input format.",
+  "threshold": null,
+  "source_accuracy_file": null,
+  "generated_at": null,
+  "classes": [],
+  "excluded": [],
+  "stats": {
+    "num_enabled": 0,
+    "num_excluded": 0,
+    "num_input_classes": 0
+  }
+}

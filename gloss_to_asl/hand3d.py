@@ -16,6 +16,7 @@ from gloss_to_asl.motion import FPS, HANDS, TRANSITION_S, Motion, MotionError
 ASSETS = Path(__file__).parent / "assets" / "hand"
 RIG_PATH = ASSETS / "makehuman_hand.json"
 TEMPLATE_PATH = ASSETS / "player_tpl.html"
+BODY_PATH = ASSETS / "makehuman_body.json"
 
 BODY_UNIT_M = 0.36
 LIFT_Y_M = -0.26
@@ -340,7 +341,7 @@ def _blob(arrays: List[Tuple[str, np.ndarray]]) -> Tuple[List[list], str]:
         layout.append([name, a.dtype.str, off, int(a.size)])
         raw += a.tobytes()
         off += a.nbytes
-    return layout, base64.b64encode(gzip.compress(raw, 9)).decode()
+    return layout, base64.b64encode(gzip.compress(raw, 9, mtime=0)).decode()
 
 
 def pack_rig(rig: Rig) -> dict:
@@ -364,12 +365,18 @@ def pack_timeline(tl: Timeline3D) -> dict:
             "mirror": [MIRROR[h] for h in HANDS], "layout": layout, "blob": blob}
 
 
+def body_json() -> str:
+    """The upper-body avatar packed for the page, or null (hands only) when it has not been built."""
+    return BODY_PATH.read_text(encoding="utf-8") if BODY_PATH.exists() else "null"
+
+
 def write_player(tl: Timeline3D, out: Path, title: str, rig: Optional[Rig] = None) -> Path:
     rig = rig or Rig.load()
     html = TEMPLATE_PATH.read_text(encoding="utf-8")
     html = (html.replace("/*TITLE*/", title)
                 .replace("/*RIG*/", json.dumps(pack_rig(rig), separators=(",", ":")))
                 .replace("/*TIMELINE*/", json.dumps(pack_timeline(tl), separators=(",", ":")))
+                .replace("/*BODY*/", body_json())
                 .replace("/*LIBRARY*/", "null"))
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)

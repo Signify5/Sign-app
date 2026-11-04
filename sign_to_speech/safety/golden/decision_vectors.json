@@ -1,0 +1,212 @@
+{
+  "version": 1,
+  "spec": "sign_to_speech/safety/SAFETY.md",
+  "lexicon": "sign_to_speech/safety/risky_pairs.json",
+  "notes": "Shared Python/JS golden set for decide(). confidence_threshold and margin_threshold are per-case. margin_threshold null means use per-severity defaults from the lexicon.",
+  "cases": [
+    {
+      "id": "emit_non_risky",
+      "topk": [["water", 0.91], ["book", 0.05], ["house", 0.02]],
+      "confidence_threshold": 0.55,
+      "margin_threshold": null,
+      "expected": {
+        "action": "emit",
+        "label": "water",
+        "guess": "water",
+        "confidence": 0.91,
+        "margin": 0.86,
+        "reason": "ok",
+        "severity": null,
+        "risky_pair": null,
+        "category": null
+      }
+    },
+    {
+      "id": "abstain_empty",
+      "topk": [],
+      "confidence_threshold": 0.55,
+      "margin_threshold": null,
+      "expected": {
+        "action": "abstain",
+        "label": null,
+        "guess": null,
+        "confidence": 0.0,
+        "margin": null,
+        "reason": "empty",
+        "severity": null,
+        "risky_pair": null,
+        "category": null
+      }
+    },
+    {
+      "id": "abstain_low_confidence",
+      "topk": [["water", 0.40], ["book", 0.30]],
+      "confidence_threshold": 0.55,
+      "margin_threshold": null,
+      "expected": {
+        "action": "abstain",
+        "label": null,
+        "guess": "water",
+        "confidence": 0.4,
+        "margin": 0.1,
+        "reason": "low_confidence",
+        "severity": null,
+        "risky_pair": null,
+        "category": null
+      }
+    },
+    {
+      "id": "abstain_risky_yes_no_critical",
+      "topk": [["yes", 0.60], ["no", 0.50]],
+      "confidence_threshold": 0.55,
+      "margin_threshold": null,
+      "expected": {
+        "action": "abstain",
+        "label": null,
+        "guess": "yes",
+        "confidence": 0.6,
+        "margin": 0.1,
+        "reason": "risky_confusion",
+        "severity": "critical",
+        "risky_pair": ["no", "yes"],
+        "category": "polarity"
+      }
+    },
+    {
+      "id": "emit_yes_when_margin_clears_critical",
+      "topk": [["yes", 0.90], ["no", 0.60]],
+      "confidence_threshold": 0.55,
+      "margin_threshold": null,
+      "expected": {
+        "action": "emit",
+        "label": "yes",
+        "guess": "yes",
+        "confidence": 0.9,
+        "margin": 0.3,
+        "reason": "ok",
+        "severity": null,
+        "risky_pair": null,
+        "category": null
+      }
+    },
+    {
+      "id": "abstain_numbers_group_one_two",
+      "topk": [["one", 0.70], ["two", 0.55]],
+      "confidence_threshold": 0.55,
+      "margin_threshold": null,
+      "expected": {
+        "action": "abstain",
+        "label": null,
+        "guess": "one",
+        "confidence": 0.7,
+        "margin": 0.15,
+        "reason": "risky_confusion",
+        "severity": "high",
+        "risky_pair": ["one", "two"],
+        "category": "numbers"
+      }
+    },
+    {
+      "id": "emit_numbers_when_margin_clears_high",
+      "topk": [["one", 0.85], ["two", 0.60]],
+      "confidence_threshold": 0.55,
+      "margin_threshold": null,
+      "expected": {
+        "action": "emit",
+        "label": "one",
+        "guess": "one",
+        "confidence": 0.85,
+        "margin": 0.25,
+        "reason": "ok",
+        "severity": null,
+        "risky_pair": null,
+        "category": null
+      }
+    },
+    {
+      "id": "low_confidence_precedes_risky",
+      "topk": [["yes", 0.50], ["no", 0.45]],
+      "confidence_threshold": 0.55,
+      "margin_threshold": null,
+      "expected": {
+        "action": "abstain",
+        "label": null,
+        "guess": "yes",
+        "confidence": 0.5,
+        "margin": 0.05,
+        "reason": "low_confidence",
+        "severity": null,
+        "risky_pair": null,
+        "category": null
+      }
+    },
+    {
+      "id": "global_margin_override_stricter",
+      "topk": [["good", 0.80], ["bad", 0.50]],
+      "confidence_threshold": 0.55,
+      "margin_threshold": 0.35,
+      "expected": {
+        "action": "abstain",
+        "label": null,
+        "guess": "good",
+        "confidence": 0.8,
+        "margin": 0.3,
+        "reason": "risky_confusion",
+        "severity": "critical",
+        "risky_pair": ["bad", "good"],
+        "category": "valence"
+      }
+    },
+    {
+      "id": "single_score_emit",
+      "topk": [["hello", 0.88]],
+      "confidence_threshold": 0.55,
+      "margin_threshold": null,
+      "expected": {
+        "action": "emit",
+        "label": "hello",
+        "guess": "hello",
+        "confidence": 0.88,
+        "margin": null,
+        "reason": "ok",
+        "severity": null,
+        "risky_pair": null,
+        "category": null
+      }
+    },
+    {
+      "id": "can_cannot_critical_close",
+      "topk": [["cannot", 0.62], ["can", 0.58]],
+      "confidence_threshold": 0.55,
+      "margin_threshold": null,
+      "expected": {
+        "action": "abstain",
+        "label": null,
+        "guess": "cannot",
+        "confidence": 0.62,
+        "margin": 0.04,
+        "reason": "risky_confusion",
+        "severity": "critical",
+        "risky_pair": ["can", "cannot"],
+        "category": "negation"
+      }
+    },
+    {
+      "id": "stable_sort_equal_scores_risky",
+      "topk": [["no", 0.70], ["yes", 0.70]],
+      "confidence_threshold": 0.55,
+      "margin_threshold": null,
+      "expected": {
+        "action": "abstain",
+        "label": null,
+        "guess": "no",
+        "confidence": 0.7,
+        "margin": 0.0,
+        "reason": "risky_confusion",
+        "severity": "critical",
+        "risky_pair": ["no", "yes"],
+        "category": "polarity"
+      }
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "norm_version": "sts_landmarks_v1",
+  "seq_len": 64,
+  "feat_dim": 92,
+  "input_frames": 16,
+  "layout": {
+    "norm_version": "sts_landmarks_v1",
+    "seq_len": 64,
+    "feat_dim": 92,
+    "hands_order": [
+      "Left",
+      "Right"
+    ],
+    "min_hand_frames": 3,
+    "presence_thresh": 0.5,
+    "per_frame": {
+      "Left.presence": 0,
+      "Left.wrist_xy": [
+        1,
+        2
+      ],
+      "Left.rel_xy_landmarks_1_to_20": [
+        3,
+        42
+      ],
+      "Right.presence": 43,
+      "Right.wrist_xy": [
+        44,
+        45
+      ],
+      "Right.rel_xy_landmarks_1_to_20": [
+        46,
+        85
+      ],
+      "pose_Left.presence_xy": [
+        86,
+        88
+      ],
+      "pose_Right.presence_xy": [
+        89,
+        91
+      ]
+    },
+    "input_space": "shoulder_v1",
+    "input_space_note": "(xy_px - median_shoulder_midpoint) / median_shoulder_width; shoulders = MediaPipe pose landmarks 11 (Left) and 12 (Right); same as gloss_to_asl.animate.extract_motion"
+  },
+  "atol": 1e-05
+}
