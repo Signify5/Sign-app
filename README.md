@@ -186,7 +186,7 @@ signify/
 ## Setup and run
 
 ```bash
-git clone https://github.com/prasada29-gif/Sign-app.git signify
+git clone https://github.com/Signify5/Sign-app.git signify
 ```
 
 ```bash
