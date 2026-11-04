@@ -1,9 +1,0 @@
-.vercel
-.env*
-.agents
-.claude
-skills-lock.json
-.env*
-sentences.*
-missing_words.csv
-alias_review.csv

@@ -89,14 +89,18 @@ p{margin:0}
 #zoom:hover{border-color:var(--plate-ink)}
 #zoom[aria-pressed=true]{background:var(--dot);color:var(--plate);border-color:var(--dot)}
 #zoom:focus-visible{outline:2px solid var(--dot);outline-offset:2px}
+#style{position:absolute;right:12px;top:92px;height:36px;padding:0 12px;background:transparent;border:1px solid var(--plate-line);border-radius:4px;color:var(--plate-ink);font-size:13px}
+#style:hover{border-color:var(--plate-ink)}
+#style[aria-pressed=true]{background:var(--dot);color:var(--plate);border-color:var(--dot)}
+#style:focus-visible{outline:2px solid var(--dot);outline-offset:2px}
 #replay{position:absolute;right:12px;bottom:12px;height:40px;padding:0 16px;background:transparent;border:1px solid var(--plate-line);border-radius:4px;color:var(--plate-ink);font-size:14px}
 #replay:hover{border-color:var(--plate-ink)}
-.app:not([data-state="ready"]) :is(.views,#tones,#replay,#zoom){visibility:hidden}
+.app:not([data-state="ready"]) :is(.views,#tones,#replay,#zoom,#style){visibility:hidden}
 
 #loader{position:absolute;left:24px;right:24px;top:50%;transform:translateY(-50%);max-width:380px;color:var(--plate-ink);transition:opacity .2s ease-out}
 @media (min-width:960px){#loader{left:48px}}
 #loader[hidden]{display:none}
-@media (max-width:959px){#tones{top:auto;bottom:12px;left:12px;right:auto}#zoom{top:12px}}
+@media (max-width:959px){#tones{top:auto;bottom:12px;left:12px;right:auto}#zoom{top:12px}#style{top:52px}}
 #loader h2{margin:0 0 14px;font-size:20px;font-weight:500;color:#fff}
 .track{height:3px;background:var(--plate-line);border-radius:2px;overflow:hidden}
 #ldBar{display:block;height:100%;background:var(--dot);transform-origin:left;transform:scaleX(.03);transition:transform .4s ease-out}
@@ -123,6 +127,7 @@ p{margin:0}
     </fieldset>
     <span id="tones" role="group" aria-label="Skin tone"></span>
     <button id="zoom" type="button" aria-pressed="false">Hands close-up</button>
+    <button id="style" type="button" aria-pressed="false">Style: realistic</button>
     <button id="replay" type="button">Replay</button>
     <div id="loader" role="status" aria-live="polite">
       <h2 id="ldTitle">Loading the hands</h2>
