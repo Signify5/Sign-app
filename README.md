@@ -92,7 +92,7 @@ flowchart LR
 | Tool | What it does | Why |
 | --- | --- | --- |
 | PySide6 (Qt) + Qt WebEngine | Desktop window, with the 3D player page shown inside it | The official Qt library for Python. It works on all major operating systems, and WebEngine lets the app reuse the web player instead of rebuilding it in Python. |
-| Vercel | Hosts the website with password protection | Free and easy to deploy. Provides HTTPS, which browsers require before they'll allow microphone access, and supports password protection through middleware. |
+| GitHub Pages + GitHub Actions | Hosts the website and rebuilds it on every push to `main` | Free, and it serves over HTTPS, which browsers require before they'll allow microphone access. The workflow in `.github/workflows/deploy-pages.yml` builds the pages from the sign pack, so no video clips are needed. |
 
 ## Project Structure
 
@@ -154,9 +154,10 @@ signify/
 ├── exports/                 # Created by setup.py, not in the repo
 │   └── library.html         # Player page shown inside the desktop app
 │
+├── .github/workflows/
+│   └── deploy-pages.yml     # Builds web/ and deploys it to GitHub Pages on every push to main
+│
 └── web/                     # Website
-    ├── vercel.json          # Vercel hosting settings
-    ├── middleware.js        # Password protection
     ├── index.html           # Mic page (built by setup.py, not in the repo)
     └── library.html         # Sign library page (built by setup.py, not in the repo)
 ```
@@ -283,11 +284,13 @@ Use Chrome or Edge, and allow microphone access when the browser asks. Typing a 
 - The 3D hands need an internet connection to load.
 - The website's mic button sends audio to Google or Microsoft for recognition.
 - Tested only on Windows.
-- Because of the WLASL data license, Signify is for non-commercial and academic use only.
+- The code is GPL-3.0 (see `LICENSE`), but because of the WLASL data license, Signify's sign data is for non-commercial and academic use only.
 
 ## The website
 
-Setup also builds a website in `web/`: a mic page, and a sign library page with every sign, the alphabet and some phrases. To try it on your computer:
+Setup also builds a website in `web/`: a mic page, and a sign library page with every sign, the alphabet and some phrases. The signer opens in the cartoon style, and the "Style" button in the corner switches to the realistic one.
+
+To try it on your computer:
 
 ```bash
 venv\Scripts\python -m http.server 8000 --directory web
@@ -297,6 +300,19 @@ Then open http://localhost:8000 in **Chrome or Edge**.
 
 - The mic button uses the browser's own speech recognition. It only works in Chrome and Edge, and it sends your voice to Google or Microsoft to turn it into text.
 - Typing a sentence works in any browser.
+
+### Hosting
+
+The site is hosted on GitHub Pages and redeploys by itself every time something is pushed to `main`. It is public, with no password. Pages serves HTTPS, so the mic works.
+
+To host your own copy:
+
+1. Fork or push the repo to GitHub.
+2. In the repo, open **Settings > Pages** and set **Source** to **GitHub Actions**. (The workflow also tries to turn this on the first time it runs.)
+3. Push to `main`, or open the **Actions** tab, pick **Deploy GitHub Pages** and click **Run workflow**.
+4. The site appears at `https://<your-user>.github.io/<repo>/` once the run turns green, usually in under a minute.
+
+The workflow runs `python -m gloss_to_asl.library --from-pack --web web`, which builds the pages from `gloss_to_asl/assets/signs.json.gz`. To rebuild the same pages locally, run that command and serve `web/` as above. Any other static host (Netlify, Cloudflare Pages, S3) also works if you serve the contents of `web/` over HTTPS.
 
 ## Licenses and data: read before sharing
 

@@ -940,7 +940,7 @@ function applyStyle(on){if(!AV)return;AV.setStyle(on);if(styleB){styleB.setAttri
   try{localStorage.setItem('signify-style',on?'toon':'real');}catch(e){}}
 if(styleB){if(!AV)styleB.hidden=true;else{styleB.onclick=()=>applyStyle(!AV.toon);
   let want=null;try{want=new URLSearchParams(location.search).get('style')||localStorage.getItem('signify-style');}catch(e){}
-  if(want==='toon'||want==='cartoon')applyStyle(true);}}
+  if(want!=='real'&&want!=='realistic')applyStyle(true);}}
 const loopB=document.getElementById('loop');loopB.onclick=()=>{loop=!loop;loopB.textContent='Loop: '+(loop?'on':'off');loopB.setAttribute('aria-pressed',loop);};
 [['#f0d0c0',0xf0cdbd],['#e2b8a2',0xe2b39d],['#c8916f',0xc48c6c],['#9a6544',0x95603f],['#6a412a',0x63402b]].forEach(([c,hx],i)=>{
   const s=document.createElement('button');s.className='tone';s.style.background=c;s.setAttribute('aria-label','Skin tone '+(i+1));
