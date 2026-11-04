@@ -50,6 +50,9 @@ p{margin:0}
 .plain:hover:not(:disabled){border-color:var(--ink-2)}
 .plain:disabled{color:var(--mute);background:transparent}
 #status{font-size:14px;color:var(--ink-2);min-height:1.5em}
+.speed{display:flex;align-items:center;gap:12px;min-height:44px;font-size:14px;color:var(--ink-2)}
+.speed input{flex:1;min-width:0;accent-color:var(--accent);height:44px;margin:0}
+.speed output{min-width:3ch;text-align:right;font:13px var(--mono);color:var(--ink)}
 
 .credits{grid-area:credits;align-self:end;margin:0;padding:16px 16px 24px;border-top:1px solid var(--rule);display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:baseline;font-size:13px;line-height:1.5;color:var(--ink-2)}
 .credits dt{font:12px var(--mono);color:var(--mute)}
@@ -137,6 +140,9 @@ p{margin:0}
       <form id="say"><label class="sr" for="text">Type a sentence</label>
         <input id="text" autocomplete="off" spellcheck="false" placeholder="or type a sentence" disabled><button class="plain" disabled>Sign</button></form>
       <p id="status" aria-live="polite"></p>
+      <div class="speed"><label for="speed">Signing speed</label>
+        <input id="speed" type="range" min="0.5" max="2.5" step="0.1" value="1.5" aria-valuetext="1.5 times">
+        <output id="speedOut" for="speed">1.5x</output></div>
     </div>
     <dl class="notation">
       <dt>english</dt><dd id="eng" aria-live="polite"></dd>
@@ -154,7 +160,7 @@ p{margin:0}
   </dl>
 
   <div class="parts" aria-hidden="true">
-    <button id="play" tabindex="-1"></button><select id="speed" tabindex="-1"><option value="1" selected>1x</option></select>
+    <button id="play" tabindex="-1"></button>
     <button id="loop" tabindex="-1" aria-pressed="true"></button><div id="lib"></div><div id="presets"></div><div id="abc"></div>
     <input id="find" tabindex="-1"><span id="count"></span><div id="list"></div>
   </div>
@@ -220,6 +226,12 @@ window.fetchNlp=GLOSS_API?s=>{const c=new AbortController(),t=setTimeout(()=>c.a
   return fetch(GLOSS_API+'/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:s,source:voiced.delete(s)?'voice':'typed'}),signal:c.signal})
     .then(r=>r.ok?r.json():Promise.reject()).then(j=>j.words).finally(()=>clearTimeout(t));}:null;
 if(GLOSS_API)fetch(GLOSS_API+'/health').catch(()=>{});
+
+const sp=$('speed'),spOut=$('speedOut');
+const showSpeed=()=>{const v=(+sp.value).toFixed(1);spOut.textContent=v+'x';sp.setAttribute('aria-valuetext',v+' times');};
+try{const v=localStorage.getItem('signify.speed');if(v&&+v>=0.5&&+v<=2.5)sp.value=v;}catch(_){}
+sp.addEventListener('input',()=>{showSpeed();try{localStorage.setItem('signify.speed',sp.value);}catch(_){}});
+showSpeed();sp.dispatchEvent(new Event('input'));
 
 const queue=[];let spoken=false,pending=false;
 const busy=()=>{const p=window.player;return !p||!p.tl||pending||spoken&&p.t<p.tl.n-1;};

@@ -11,8 +11,8 @@ from gloss_to_asl.motion import FPS
 
 FINGERS = ("index", "middle", "ring", "pinky")
 SPELL_POS = np.array([-0.12, 0.03, 0.26])
-HOLD_S = 0.28
-CHANGE_S = 0.12
+HOLD_S = 0.34
+CHANGE_S = 0.13
 PATH_S = 0.5
 DOUBLE_SHIFT_M = 0.025
 

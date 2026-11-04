@@ -43,7 +43,7 @@ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 <div id="words" aria-live="polite"></div>
 <div class="bar">
   <button id="play">Pause</button><button id="replay">Replay</button>
-  <label>Speed <select id="speed"><option value="0.5">0.5x</option><option value="0.75">0.75x</option><option value="1" selected>1x</option></select></label>
+  <label>Speed <select id="speed"><option value="0.5">0.5x</option><option value="0.75">0.75x</option><option value="1">1x</option><option value="1.5" selected>1.5x</option><option value="2">2x</option></select></label>
   <button id="loop" aria-pressed="true">Loop: on</button>
   <button id="zoom" aria-pressed="false">Hands close-up</button>
   <span class="sep"></span><span id="tones">Skin</span>
@@ -410,6 +410,7 @@ vec3 mouthMorph(vec3 p){
   vec2 c=vec2((abs(p.x)-0.040)/0.020,(p.y-uMouthY2-0.012)/0.022);
   float wc=exp(-dot(c,c))*front;
   d+=vec3(sign(p.x)*0.7,0.0,0.5)*0.0075*puff*wc;
+  d.y+=uMouth.w*0.0070*clamp(abs(p.x)/0.03,0.0,1.0)*w;
   return d;
 }
 vec3 faceMorph(vec3 p){
@@ -606,7 +607,7 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
   function arm(h,out){
     const Tt=h.g.position;
     const up=sm((Tt.y-Sh.y+0.03)/0.30),fwd=sm((Tt.z-0.10)/0.22),cross=sm((Tt.x-Sh.x-0.02)/0.25);
-    S.set(Sh.x+cross*0.014,Sh.y+up*0.032,Sh.z+fwd*0.016+cross*0.006);
+    S.set(Sh.x+cross*0.014,Sh.y+up*0.032,Sh.z+fwd*0.016+cross*0.006);S.applyMatrix4(TORSO);S.y+=SHRUG*0.02;
     T.copy(Tt);
     dirST.subVectors(T,S);let d=dirST.length();dirST.divideScalar(d||1);
     const maxR=(L1+L2)*0.985,minR=Math.abs(L1-L2)+0.03;
@@ -626,21 +627,23 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
     comp(out[2],new V3().copy(E).lerp(T,nodes[1]),tq.copy(qFo).multiply(twistQ(foreR,th*nodes[1]/nodes[3])));
     comp(out[3],new V3().copy(E).lerp(T,nodes[2]),tq.copy(qFo).multiply(twistQ(foreR,th*nodes[2]/nodes[3])));
     out[4].multiplyMatrices(h.g.matrix,h.bones[0].matrix);
-    clNow.subVectors(S,Cl).normalize();comp(out[5],Cl,tq.setFromUnitVectors(clRest,clNow));
+    _cl.copy(Cl).applyMatrix4(TORSO);clNow.subVectors(S,_cl).normalize();comp(out[5],_cl,tq.setFromUnitVectors(clRest,clNow));
   }
   const ONE=new V3(1,1,1);
+  const TORSO=new M4(),HIP=new V3(0,-0.5,0),_cl=new V3(),_eu=new THREE.Euler(),_qt=new Qt();let SHRUG=0;
   const jawM=new M4(),headM=new M4(),neckW=new M4(),headW=new M4(),qHead=new Qt(),qNeck=new Qt(),qRel=new Qt(),idQ=new Qt(),Mn=new M4();
   function pose(st){
+    _eu.set(st.lean,st.twist,st.tilt);_qt.setFromEuler(_eu);TORSO.compose(HIP,_qt,ONE).multiply(Tm(HIP).invert());SHRUG=st.shrug;
     hands.forEach(h=>{arm(h,Wp);const base=h.mirror?8:3;
       U.uBend.value.setComponent(h.mirror?1:0,Math.min(1,Math.max(0,(h.bend||0)/2.0)));
       for(let k=0;k<5;k++){const m=bones[base+k].matrix;m.copy(Wp[k]);if(h.mirror)m.premultiply(Mx).multiply(Mx);bones[base+k].matrixWorldNeedsUpdate=true;}
       {const cb=bones[h.mirror?15:14],m=cb.matrix;m.copy(Wp[5]);if(h.mirror)m.premultiply(Mx).multiply(Mx);cb.matrixWorldNeedsUpdate=true;}});
     eu.set(st.pitch,st.yaw,st.roll);qHead.setFromEuler(eu);qNeck.copy(idQ).slerp(qHead,0.35);
-    Mn.compose(Pn,qNeck,ONE).multiply(Tm(Pn).invert());
+    Mn.copy(TORSO).multiply(tmp.compose(Pn,qNeck,ONE)).multiply(Tm(Pn).invert());
     qRel.copy(qNeck).invert().multiply(qHead);
     headM.copy(Mn).multiply(Tm(Ph)).multiply(tmp.compose(new V3(),qRel,ONE)).multiply(Tm(Ph).invert());
     neckW.copy(Mn).multiply(Tm(Pn));headW.copy(headM).multiply(Tm(Ph));
-    bones[0].matrix.identity();bones[1].matrix.copy(neckW);bones[2].matrix.copy(headW);bones.slice(0,3).forEach(b=>b.matrixWorldNeedsUpdate=true);
+    bones[0].matrix.copy(TORSO);bones[1].matrix.copy(neckW);bones[2].matrix.copy(headW);bones.slice(0,3).forEach(b=>b.matrixWorldNeedsUpdate=true);
     hair.matrix.copy(headM);hair.matrixWorldNeedsUpdate=true;hairStrands.matrix.copy(headM);hairStrands.matrixWorldNeedsUpdate=true;
     jawM.copy(headM).multiply(Tm(Pj)).multiply(tmp.makeRotationX(st.jaw*0.32)).multiply(Tm(Pj).invert());
     bones[13].matrix.copy(jawM).multiply(Tm(Pj));bones[13].matrixWorldNeedsUpdate=true;
@@ -650,22 +653,36 @@ float vnoise(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);
     [brows,browHair,lashes].forEach(set=>set.forEach((m,i)=>{m.matrix.copy(headM);if(i)m.matrix.multiply(Mx);m.matrixWorldNeedsUpdate=true;m.material.userData.u.uBrow.value.x=i?st.browL:st.browR;}));
     eu.set(st.gy,st.gx,0);tq.setFromEuler(eu);
     eyes.forEach((m,i)=>{m.matrix.copy(headM).multiply(Tm(eyeC[i])).multiply(tmp.makeRotationFromQuaternion(tq));if(i)m.matrix.multiply(Mx);m.matrixWorldNeedsUpdate=true;});
-    U.uBrow.value.set(st.browR,st.browL);U.uBlink.value=st.blink;U.uMouth.value.set(st.pucker,st.wide,st.puff,0);U.uBreath.value=st.breath;
+    U.uBrow.value.set(st.browR,st.browL);U.uBlink.value=st.blink;U.uMouth.value.set(st.pucker,st.wide,st.puff,st.mood);U.uBreath.value=st.breath;
   }
   return {group:grp,skin,pose,U,bones,hairMat,shirtMat};
 })();
 }
 
-const NM={sents:[],words:[],mouth:[],starts:[],fps:30};
+const NM={sents:[],words:[],rh:[],mouth:[],starts:[],emo:[],excl:[],fps:30};
+const SETOF=s=>new Set(s.split(' '));
+const EMOW={
+  happy:SETOF('HAPPY GLAD JOY FUNNY LAUGH SMILE EXCITED EXCITE FUN LOVE LIKE GREAT GOOD WONDERFUL AWESOME CELEBRATE BIRTHDAY THANK THANKS WELCOME HELLO HI CONGRATULATIONS BEAUTIFUL PRETTY NICE CUTE ENJOY PLEASE YES FRIEND PARTY'),
+  sad:SETOF('SAD CRY UNHAPPY SORRY MISS LONELY LOSE LOST DIE DEAD DEATH FUNERAL HURT PAIN SICK ILL TIRED DEPRESSED DISAPPOINTED BAD SUFFER'),
+  angry:SETOF('ANGRY MAD HATE ANNOYED FURIOUS UPSET DISGUST REFUSE FIGHT NEVER STOP NO NOT'),
+  surprise:SETOF('WOW AMAZING SURPRISE SHOCK SHOCKED REALLY SUDDEN UNBELIEVABLE'),
+  fear:SETOF('AFRAID SCARED FEAR WORRY NERVOUS DANGER DANGEROUS HELP PANIC TERRIFIED'),
+  proud:SETOF('PROUD STRONG BRAVE CONFIDENT SUCCESS WIN WINNER SURE PROMISE')};
+const WEAK=SETOF('NO NOT NEVER STOP YES PLEASE BAD GOOD LIKE HELP SURE HI');
 const sstep=x=>{x=Math.min(1,Math.max(0,x));return x*x*(3-2*x);};
 function nmmPlan(tl){const S=new Map();
   tl.segments.forEach(([s,e,l,m])=>{if(!m||!m.mark)return;const o=S.get(m.sent);if(o)o.b=e;else S.set(m.sent,{a:s,b:e,mark:m.mark});});
   NM.sents=[...S.values()];NM.fps=tl.fps||30;
+  NM.rh=tl.segments.filter(x=>x[3]&&x[3].rh).map(x=>({a:x[0],b:x[1]}));
   NM.words=tl.segments.filter(x=>x[3]&&(x[3].neg||x[3].yes)).map(x=>({a:x[0],b:x[1],neg:x[3].neg,yes:x[3].yes}));
   const MOUTH={BIG:'cha',LARGE:'cha',TALL:'cha',MANY:'cha',MUCH:'cha',FAT:'puff',FULL:'puff',HEAVY:'puff',SMALL:'oo',THIN:'oo',SHORT:'oo',
     CARELESS:'th',RECENT:'th',FINISH:'pah',DONE:'pah',WOW:'wow',AMAZING:'wow',SURPRISE:'wow',HAPPY:'smile',FUNNY:'smile',EXCITED:'smile',LOVE:'smile'};
   NM.mouth=tl.segments.filter(x=>x[3]&&!x[3].spell).map(x=>{const l=String(x[2]).toUpperCase();
     return {a:x[0],b:x[1],type:MOUTH[l]||'talk',syl:Math.min(4,Math.max(1,(l.match(/[AEIOUY]+/g)||['A']).length))};});
+  const SR=new Map();tl.segments.forEach(([s,e,l,m])=>{if(!m)return;const o=SR.get(m.sent);if(o){o.b=e;}else SR.set(m.sent,{a:s,b:e,excl:m.excl});});
+  NM.emo=[];tl.segments.forEach(([s,e,l,m])=>{if(!m||m.spell)return;const toks=String(l).toUpperCase().split(/[\s_-]+/),r=SR.get(m.sent);
+    for(const k in EMOW)if(toks.some(w=>EMOW[k].has(w)))NM.emo.push({k,a:s,b:e,sa:r.a,sb:r.b,g:toks.every(w=>WEAK.has(w))?0.55:1});});
+  NM.excl=[...SR.values()].filter(r=>r.excl);
   NM.starts=tl.segments.filter(x=>x[3]&&!x[3].spell).map(x=>x[0]);
   NM.ends=tl.segments.length?[tl.segments[tl.segments.length-1][1]]:[];}
 const BL=[];{let r=7,tb=1.4;while(tb<1500){r=(r*1664525+1013904223)>>>0;tb+=1.8+3.4*r/4294967296;BL.push(tb);}}
@@ -676,13 +693,30 @@ function blinkAt(c){let lo=0,hi=BL.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if
 let FREEZE=false,FORCE=null;
 function faceState(t){
   const f=NM.fps||30,c=FREEZE?t/f:performance.now()/1000;
-  const st={browR:0,browL:0,blink:0,pitch:0,yaw:0,roll:0,gx:0,gy:0,jaw:0,pucker:0,wide:0,puff:0,tongue:0,breath:0};
-  let brow=0;
+  const st={browR:0,browL:0,blink:0,pitch:0,yaw:0,roll:0,gx:0,gy:0,jaw:0,pucker:0,wide:0,puff:0,tongue:0,breath:0,mood:0,lean:0,tilt:0,twist:0,shrug:0};
+  let brow=0,sq=0,puz=0;
   NM.sents.forEach(s=>{const env=Math.min(sstep((t-(s.a-9))/9),1-sstep((t-s.b)/12));if(env<=0)return;
-    if(s.mark==='yn'){brow+=env;st.pitch+=0.09*env;st.roll+=0.04*env;}
-    else{brow-=env;st.pitch+=0.03*env;st.roll-=0.05*env;}});
+    if(s.mark==='yn'){const end=sstep((t-(s.b-14))/8)*(1-sstep((t-s.b)/12));brow+=Math.min(1,env*0.85+0.4*end);st.pitch+=0.09*env;st.roll+=0.05*env;st.lean+=0.04*env;sq-=0.3*env+0.2*end;st.jaw=Math.max(st.jaw,0.06*env);st.mood+=0.2*env;}
+    else if(s.mark==='cond'){const ce=sstep((t-(s.a-6))/6)*(1-sstep((t-(s.b-1))/6)),nx=(t-s.b)/10,nod=nx>0&&nx<1?Math.sin(Math.PI*nx):0;
+      brow+=0.95*ce;st.roll+=0.07*ce;st.pitch+=0.03*ce+0.16*nod;st.lean+=0.03*ce;sq-=0.15*ce;st.mood+=0.1*ce;}
+    else{brow-=0.8*env;puz+=env;st.pitch+=0.03*env;st.roll-=0.07*env;st.lean+=0.03*env;sq+=0.18*env;st.mood-=0.15*env;}});
+  const E={happy:0,sad:0,angry:0,surprise:0,fear:0,proud:0,energy:0};
+  NM.emo.forEach(x=>{const w=sstep((t-(x.a-8))/8)*(1-sstep((t-(x.b+6))/14)),b=0.5*sstep((t-(x.sa-10))/10)*(1-sstep((t-(x.sb+4))/16));
+    E[x.k]=Math.max(E[x.k],x.g*Math.max(w,b));});
+  NM.excl.forEach(r=>{E.energy=Math.max(E.energy,sstep((t-(r.a-6))/8)*(1-sstep((t-(r.b+4))/14)));});
+  brow+=0.35*E.happy+0.25*E.sad-0.9*E.angry+1.0*E.surprise+0.7*E.fear+0.15*E.proud+0.3*E.energy;
+  sq+=0.25*E.happy+0.2*E.sad+0.35*E.angry-0.5*E.surprise-0.3*E.fear;
+  st.mood=Math.max(-1,Math.min(1,st.mood+E.happy-E.sad-0.6*E.angry-0.5*E.fear+0.4*E.proud+0.3*E.energy));
+  st.wide=Math.max(0,0.85*E.happy+0.3*E.energy+0.3*E.proud);
+  st.jaw=Math.max(st.jaw,0.35*E.surprise,0.15*E.fear,0.18*E.energy);
+  st.pitch+=0.12*E.sad+0.05*E.angry-0.05*E.surprise-0.05*E.proud+0.03*E.fear;
+  st.roll+=0.07*E.happy+0.04*E.sad+0.03*E.energy;
+  st.lean+=0.05*E.sad+0.04*E.angry-0.04*E.surprise-0.05*E.fear-0.03*E.proud+0.015*E.energy;
+  st.shrug=0.8*E.fear+0.4*E.surprise-0.5*E.sad+0.25*E.happy+0.3*E.proud;
+  st.tilt+=0.02*E.happy+0.015*E.sad;
+  NM.rh.forEach(r=>{const x=(t-(r.a-4))/((r.b-r.a)+10);if(x<0||x>1)return;const env=Math.sin(Math.PI*x);brow+=0.9*env;st.roll+=0.09*env;st.pitch-=0.04*env;st.lean-=0.02*env;});
   NM.words.forEach(w=>{const x=(t-(w.a-2))/((w.b-w.a)+8);if(x<0||x>1)return;const env=Math.sin(Math.PI*x),ts=(t-w.a)/f;
-    if(w.neg)st.yaw+=0.30*Math.sin(2*Math.PI*3.0*ts)*env;
+    if(w.neg){st.yaw+=0.30*Math.sin(2*Math.PI*3.0*ts)*env;brow-=0.3*env;sq+=0.1*env;st.lean+=0.02*env;}
     if(w.yes)st.pitch+=0.22*Math.sin(2*Math.PI*2.2*ts)*env;});
   NM.mouth.forEach(m=>{const x=(t-m.a)/Math.max(1,m.b-m.a);if(x<-0.08||x>1.08)return;const env=Math.sin(Math.PI*Math.min(1,Math.max(0,(t-m.a+3)/(m.b-m.a+6))));
     const pulse=Math.pow(Math.sin(Math.PI*((Math.min(1,Math.max(0,x))*m.syl)%1)),2);
@@ -697,9 +731,10 @@ function faceState(t){
       case'smile':up('wide',0.8*env);up('jaw',0.08*env);break;
       default:up('jaw',0.13*env*pulse);}});
   st.pitch+=0.016*Math.sin(c*0.9)+0.010*Math.sin(c*2.3+1);st.yaw+=0.022*Math.sin(c*0.55+0.5)+0.010*Math.sin(c*1.7);st.roll+=0.014*Math.sin(c*0.7+2);
-  brow=Math.max(-1,Math.min(1,brow+0.05*Math.sin(c*1.3)));st.browR=st.browL=brow;
-  st.blink=blinkAt(c);st.breath=0.5+0.5*Math.sin(c*Math.PI*0.5);
-  NM.starts.forEach(a=>{const x=(t-a)/f;if(x>-0.05&&x<0.45)st.pitch+=0.035*Math.sin(Math.PI*(x+0.05)/0.5);});
+  brow=Math.max(-1,Math.min(1,brow+0.05*Math.sin(c*1.3)));st.browR=Math.max(-1,Math.min(1,brow+0.45*puz));st.browL=Math.max(-1,Math.min(1,brow-0.25*puz));
+  st.lean+=0.010*Math.sin(c*0.8)+0.006*Math.sin(c*1.9);st.tilt+=0.016*Math.sin(c*0.45+1)+0.006*Math.sin(c*1.3);st.twist+=0.022*Math.sin(c*0.33)+0.008*Math.sin(c*0.9+2);
+  st.blink=Math.max(-0.6,Math.min(1,blinkAt(c)*(1-Math.max(0,sq))+sq));st.breath=0.5+0.5*Math.sin(c*Math.PI*0.5);
+  NM.starts.forEach(a=>{const x=(t-a)/f;if(x>-0.05&&x<0.45){const b=Math.sin(Math.PI*(x+0.05)/0.5);st.pitch+=0.035*b;st.lean+=0.012*b;st.shrug+=0.15*b;}});
   if(FORCE)Object.assign(st,FORCE);
   st.gx=-0.75*st.yaw+0.03*Math.sin(c*0.8)*Math.sin(c*0.37+1);st.gy=-0.75*st.pitch+0.02*Math.sin(c*0.6+2)*Math.sin(c*0.29);
   return st;}
@@ -730,11 +765,20 @@ function setFrame(t){
     h.outer.updateMatrixWorld(true);});
 }
 const words=document.getElementById('words');
-let t=0,playing=true,loop=true,speed=1,hold=0;
+const cap=document.createElement('div');cap.setAttribute('aria-hidden','true');
+cap.style.cssText='position:absolute;left:12px;bottom:12px;display:none;gap:6px;padding:6px 10px;border:1px solid var(--rule,#DCE2E7);border-radius:4px;background:var(--surface,#fff);font:600 26px/1 ui-monospace,Consolas,monospace;letter-spacing:.04em;pointer-events:none';
+document.getElementById('stage').parentElement.appendChild(cap);let capKey='';
+function spellCaption(t){const sg=TL&&TL.segments.find(s=>s[3]&&s[3].marks&&t>=s[0]&&t<=s[1]);
+  if(!sg){cap.style.display='none';capKey='';return;}
+  const m=sg[3].marks,at=t-sg[0];let k=m.findIndex(x=>at>=x[1]&&at<x[2]);if(k<0)k=m.length-1;
+  const key=sg[0]+':'+k;if(key===capKey)return;capKey=key;cap.style.display='flex';cap.textContent='';
+  m.forEach((x,i)=>{const e=document.createElement('span');e.textContent=x[0];e.style.color=i===k?'var(--accent,#2F5BD3)':'var(--mute,#6B7785)';e.style.opacity=i===k?'1':'.55';cap.appendChild(e);});}
+const speedEl=document.getElementById('speed');
+let t=0,playing=true,loop=true,speed=+speedEl.value||1,hold=0;
 const playB=document.getElementById('play');
 playB.onclick=()=>{playing=!playing;playB.textContent=playing?'Pause':'Play';};
 document.getElementById('replay').onclick=()=>{t=0;hold=0;playing=true;playB.textContent='Pause';};
-document.getElementById('speed').onchange=e=>speed=+e.target.value;
+['input','change'].forEach(ev=>speedEl.addEventListener(ev,()=>{speed=+speedEl.value||1;}));
 const zoomB=document.getElementById('zoom');
 if(zoomB){if(!AV)zoomB.hidden=true;else zoomB.onclick=()=>{closeUp=!closeUp;zoomB.setAttribute('aria-pressed',closeUp);frame();};}
 const loopB=document.getElementById('loop');loopB.onclick=()=>{loop=!loop;loopB.textContent='Loop: '+(loop?'on':'off');loopB.setAttribute('aria-pressed',loop);};
@@ -783,26 +827,29 @@ if(LIB){
       const out=[];for(let j=0;j<=(n-1)*up;j++){const a=j/up,i=Math.floor(a);out.push(i+1<n?lerpPose(P[i],P[i+1],a-i):P[i]);}return out;});
     memo.set(g,T);return T;}
   function spellTracks(word,holdS){const ls=[...word].filter(c=>L.letters[c]);if(!ls.length)return null;
-    const hold=Math.max(Math.round((holdS||L.hold)*OF),1),change=Math.max(Math.round(L.change*OF),2);const out=[];let prev=null;
+    const hold=Math.max(Math.round((holdS||L.hold)*OF),1),change=Math.max(Math.round(L.change*OF),2),tail=Math.round(0.12*OF);
+    const out=[],marks=[];let prev=null;
     ls.forEach((c,i)=>{let fr=L.letters[c].map(a=>Float32Array.from(a));const path=fr.length>1;
-      if(!path)fr=Array(hold).fill(fr[0]);
-      if(i&&c===ls[i-1]&&!path&&!(i>1&&c===ls[i-2]))fr=fr.map(p=>{const q=Float32Array.from(p);q[0]-=L.doubleShift;return q;});
-      if(prev)for(let k=1;k<change;k++)out.push(lerpPose(prev,fr[0],mj(k/change)));
-      out.push(...fr);prev=fr[fr.length-1];});
-    return L.hands.map((_,h)=>h===RH?out:null);}
+      if(!path)fr=Array(hold+(i===ls.length-1?tail:0)).fill(fr[0]);
+      const dbl=i>0&&c===ls[i-1]&&!path&&!(i>1&&c===ls[i-2]);
+      if(dbl)fr=fr.map(p=>{const q=Float32Array.from(p);q[0]-=L.doubleShift;return q;});
+      if(prev)for(let k=1;k<change;k++){const q=lerpPose(prev,fr[0],mj(k/change));out.push(q);}
+      marks.push([c,out.length]);out.push(...fr);prev=fr[fr.length-1];});
+    marks.forEach((m,i)=>m.push(i+1<marks.length?marks[i+1][1]:out.length));
+    const T=L.hands.map((_,h)=>h===RH?out:null);T.marks=marks;return T;}
   function compose(items){const nT=Math.max(Math.round(L.transition*OF),2),out=[],segs=[];let cur=L.hands.map(()=>rest);
     const glide=tg=>{const n=Math.max(...tg.map((p,h)=>glideN(cur[h],p,nT)));for(let k=1;k<=n;k++){const t=mj(k/n);out.push(tg.map((p,h)=>lerpPose(cur[h],p,t)));}};
     items.forEach(({tracks:T,label,meta})=>{const n=Math.max(...T.map(x=>x?x.length:0));const start=out.length;
       glide(T.map(x=>x?x[0]:rest));for(let i=0;i<n;i++)out.push(T.map(x=>x?x[Math.min(i,x.length-1)]:rest));
-      cur=out[out.length-1];segs.push([start,out.length-1,label,meta||null]);for(let k=Math.round(L.gap*OF);k>0;k--)out.push(cur);});
+      cur=out[out.length-1];segs.push([start,out.length-1,label,meta||null]);for(let k=Math.round(L.gap*OF)+(meta&&meta.spell?Math.round(0.2*OF):0);k>0;k--)out.push(cur);});
     glide(L.hands.map(()=>rest));
     const F=new Float32Array(out.length*2*SD);out.forEach((r,i)=>r.forEach((p,h)=>F.set(p,(i*2+h)*SD)));
     return {n:out.length,stride:SD,fps:OF,segments:segs,frames:F,ps:1};}
   const VOC=Object.keys(L.signs),PLURAL_SHIFT=0.04;
   const shifted=T=>T.map(x=>x&&x.map(p=>{const q=Float32Array.from(p);q[0]-=PLURAL_SHIFT;return q;}));
   function parse(text,nlp){const r=toGloss(text,L,nlp),items=[],skipped=[];
-    r.items.forEach(x=>{if(x.spell){const T=spellTracks(x.spell);if(T)items.push({label:x.spell,tracks:T,meta:{mark:x.mark,sent:x.sent,spell:true}});else skipped.push(x.spell);return;}
-      const T=signTracks(x.gloss),meta={mark:x.mark,sent:x.sent,neg:x.neg,yes:x.yes};items.push({label:x.gloss,tracks:T,meta});if(x.rep)items.push({label:x.gloss,tracks:shifted(T),meta});});
+    r.items.forEach(x=>{if(x.spell){const T=spellTracks(x.spell);if(T)items.push({label:x.spell,tracks:T,meta:{mark:x.mark,sent:x.sent,excl:x.excl,spell:true,marks:T.marks}});else skipped.push(x.spell);return;}
+      const T=signTracks(x.gloss),meta={mark:x.mark,sent:x.sent,excl:x.excl,neg:x.neg,yes:x.yes,rh:x.rh};items.push({label:x.gloss,tracks:T,meta});if(x.rep)items.push({label:x.gloss,tracks:shifted(T),meta});});
     return Object.assign(r,{items,skipped,order:items.map(x=>x.label).join(' ')});}
   const $=id=>document.getElementById(id),note=$('note'),text=$('text');
   function say(s,nlp){const r=parse(s,nlp);
@@ -829,8 +876,8 @@ window.seek=x=>{t=x;playing=false;FREEZE=true;setFrame(t);if(AV){AV.pose(faceSta
 let last=performance.now();
 (function tick(now){
   const dt=Math.min((now-last)/1000,0.05);last=now;
-  if(playing){if(t<TL.n-1)t=Math.min(TL.n-1,t+dt*TL.fps*speed);else if(loop){hold+=dt;if(hold>0.8){t=0;hold=0;}}}
-  setFrame(t);
+  if(playing){if(t<TL.n-1)t=Math.min(TL.n-1,t+dt*TL.fps*speed);else if(loop){hold+=dt;if(hold>0.8/speed){t=0;hold=0;}}}
+  setFrame(t);spellCaption(t);
   spans.forEach((sp,i)=>sp.classList.toggle('on',t>=TL.segments[i][0]&&t<=TL.segments[i][1]));
   skinU.uKey.value.copy(key.position).normalize().transformDirection(camera.matrixWorldInverse);
   skinU.uRim.value.copy(rim.position).normalize().transformDirection(camera.matrixWorldInverse);
